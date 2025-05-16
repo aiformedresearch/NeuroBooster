@@ -1,0 +1,3 @@
+ViT:
+- consider testing it only with 10% and 1% labels to be faster? not really, the pretraining needs regardless all the images so the fine tuning is quite fast (?)
+- make sure the beit encoder is not masking anything for VICReg and SL

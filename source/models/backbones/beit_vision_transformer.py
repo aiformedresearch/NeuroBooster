@@ -354,3 +354,116 @@ def beit_small(args, **kwargs):
     )
 
     return backbone
+
+
+############# VICREG:
+
+
+class VisionTransformerEncoder(nn.Module):
+    """
+    Unified Vision Transformer (ViT) Encoder for Self-Supervised (VICReg) and Supervised (MedBooster) Learning
+    ----------------------------------------------------------------------------------------------------------
+
+    This ViT encoder is adapted from the BEiT/SimMIM architecture and is designed to be reused across different tasks.
+
+    Main differences from standard ViT:
+    - Removes classification head (no `self.head` or `num_classes` logic).
+    - Returns the [CLS] token embedding as a fixed-size representation of the input image.
+    - Does not apply mean pooling or other final projection logic.
+
+    Usage:
+    - In self-supervised VICReg, the encoder is followed by a projection MLP (projector) used in the VICReg loss.
+    - In supervised MedBooster, the same encoder is followed by a task-specific MLP (Projector used as classifier head).
+
+    This design allows easy switching between SL and SSL tasks using the same encoder backbone.
+    """
+
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, depth=12,
+                 num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0.,
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
+                 init_values=None, use_abs_pos_emb=False, use_rel_pos_bias=True,
+                 use_shared_rel_pos_bias=False, use_mean_pooling=False):
+        super().__init__()
+        self.num_features = self.embed_dim = embed_dim
+
+        self.patch_embed = PatchEmbed(
+            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
+        num_patches = self.patch_embed.num_patches
+
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        if use_abs_pos_emb:
+            self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        else:
+            self.pos_embed = None
+        self.pos_drop = nn.Dropout(p=drop_rate)
+
+        if use_shared_rel_pos_bias:
+            self.rel_pos_bias = RelativePositionBias(window_size=self.patch_embed.patch_shape, num_heads=num_heads)
+        else:
+            self.rel_pos_bias = None
+
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
+        self.use_rel_pos_bias = use_rel_pos_bias
+        self.blocks = nn.ModuleList([
+            Block(
+                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
+                init_values=init_values, window_size=self.patch_embed.patch_shape if use_rel_pos_bias else None)
+            for i in range(depth)])
+        self.norm = norm_layer(embed_dim)
+
+        self._init_weights()
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                trunc_normal_(m.weight, std=.02)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.weight, 1.0)
+            elif isinstance(m, nn.Conv2d):
+                trunc_normal_(m.weight, std=.02)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+        trunc_normal_(self.cls_token, std=.02)
+        if self.pos_embed is not None:
+            trunc_normal_(self.pos_embed, std=.02)
+
+    def forward(self, x):
+        x = self.patch_embed(x)
+        B, _, _ = x.shape
+
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+
+        if self.pos_embed is not None:
+            x = x + self.pos_embed
+        x = self.pos_drop(x)
+
+        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
+        for blk in self.blocks:
+            x = blk(x, rel_pos_bias=rel_pos_bias)
+
+        x = self.norm(x)
+        return x[:, 0]  # return CLS token only (as representation)
+
+
+def beit_encoder(args):
+    return VisionTransformerEncoder(
+        img_size=args.resize_shape,
+        patch_size=args.simim_patch_size,
+        in_chans=args.simim_in_chans,
+        embed_dim=args.simim_emb_dim,
+        depth=args.simim_depth,
+        num_heads=args.simim_num_heads,
+        mlp_ratio=args.simim_mlp_ratio,
+        drop_path_rate=args.simim_drop_path_rate,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6),
+        use_abs_pos_emb=False,
+        use_rel_pos_bias=True,
+        use_shared_rel_pos_bias=False,
+        use_mean_pooling=False,
+    )

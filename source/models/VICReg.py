@@ -13,10 +13,16 @@ class init_vicreg(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.num_features = int(args.projector.split("-")[-1])
-        self.encoder, self.embedding = resnet.__dict__[args.backbone](
-            zero_init_residual=True
-        )
-        self.projector = Projector(args, self.embedding)
+
+        if 'beit' in args.backbone:
+            self.encoder = beit_encoder_for_vicreg(args)
+            self.projector = Projector(args, self.encoder.embed_dim)
+
+        else:
+            self.encoder, self.embedding = resnet.__dict__[args.backbone](
+                zero_init_residual=True
+            )
+            self.projector = Projector(args, self.embedding)
 
     def forward(self, x, y):
         z_x = self.projector(self.encoder(x))
