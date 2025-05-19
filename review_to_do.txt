@@ -1,3 +1,21 @@
 ViT:
 - consider testing it only with 10% and 1% labels to be faster? not really, the pretraining needs regardless all the images so the fine tuning is quite fast (?)
 - make sure the beit encoder is not masking anything for VICReg and SL
+- are the data augmentations happening correctly anyway?
+- if explanation that SimMIM did not workproperly was because of the ViT but it works for vicreg we must change discussion
+
+
+3D:
+- use 3 axis 2D images  (not so easy to combine their embeddings anyway)
+- reduce resolution
+- 3D data augmentations
+- check if we should expect more or less data needed to train in 3D
+- I think it would be enough to apply 3D only comparing in one task Supervised vs MedBooster
+- ho solo aggiunto lo script per 3D vision transfrormer ma va integrato bene nel pretraining etc
+- se fa cagare il problema potrebbe essere il ViT di SimMIM e non la loss
+- usare MAE e il suo ViT? forse fa un masking che rompe piu le scatole?
+- we need more data? in realtà meglio comparare a parità di dati perchè è utile avere risposta, inoltre c'è questo esempoio che al contrario per gli stessi risultati servono meno dati: https://pubmed.ncbi.nlm.nih.gov/36829675/
+è di solito vero ma nel caso di brain mri potrebbe non esserlo per vari motivi, in particolare nel nostro caso in cui a maggior ragione le features sono piu vere quando il datop è 3D 
+
+additioanl ssl paradigms:
+- use best of both worlds or justify one of the algorithms they as it
