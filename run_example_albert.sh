@@ -2,13 +2,14 @@
 
 # images_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz' tabular_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv' bash /home/andreaespis/diciotti/andrea/med-booster/MAIN/run_example.sh
 
+
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_1/}
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_4/}
 paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
 images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
-tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
 labels_percentage=${labels_percentage:-100}
 resize_shape=${resize_shape:-224}
 dataset_name=${dataset_name:-AGE}
@@ -30,9 +31,9 @@ device=${device:-cuda:0}
 
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-2}
-pretrain_min_epochs=${pretrain_min_epochs:-1}
-pretrain_patience=${pretrain_patience:-1}
+pretrain_epochs=${pretrain_epochs:-300}
+pretrain_min_epochs=${pretrain_min_epochs:-200}
+pretrain_patience=${pretrain_patience:-50}
 pretrain_batch_size=${pretrain_batch_size:-256}
 pretrain_optim=${pretrain_optim:-LARS}
 pretrain_base_lr=${pretrain_base_lr:-0.05}
@@ -40,9 +41,9 @@ pretrain_weight_decay=${pretrain_weight_decay:-1e-6}
 pretrain_weighted_loss=${pretrain_weighted_loss:-True} # in our experiments the pre-training was performed solely on the regression task so this parameter was not used
 
 # Finetuning
-finetune_epochs=${finetune_epochs:-2}
-finetune_min_epochs=${finetune_min_epochs:-1}
-finetune_patience=${finetune_patience:-1}
+finetune_epochs=${finetune_epochs:-1000}
+finetune_min_epochs=${finetune_min_epochs:-500}
+finetune_patience=${finetune_patience:-50}
 finetune_batch_size=${finetune_batch_size:-512}
 finetune_val_batch_size=${finetune_val_batch_size:-512}
 finetune_head_lr=${finetune_head_lr:-0.001}

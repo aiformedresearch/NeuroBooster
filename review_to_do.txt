@@ -1,3 +1,9 @@
+1) add times computation
+2) add memory computation
+3) add FLOPs computation
+
+make transformer vs resnet instead of Simim
+
 ViT:
 - consider testing it only with 10% and 1% labels to be faster? not really, the pretraining needs regardless all the images so the fine tuning is quite fast (?)
 - make sure the beit encoder is not masking anything for VICReg and SL
@@ -5,6 +11,14 @@ ViT:
 - if explanation that SimMIM did not workproperly was because of the ViT but it works for vicreg we must change discussion
 
 
+WHEN CHOOSING ANOTHER PARADIGM I MUST TAKE INTO ACCOUNT THAT I SHOULD RE-IMPLEMENT IT WITH THE SAME VISION TRANSFORMER!!! BETTER CHOOSE A TECHNIQUE WHICH EXPLOITS META-data
+TO PERFORM CONTRASTIVE SO THAT IT IS SIMILAR TO VICREG AND i CAN USE THE SAME STRATEGY.
+
+ALTERNATIVE: MAE HAD A BETTER PERFORMANCE, BUT IT MIGHT BE EVEN BETTER THAN MEDBOOSTER? ANYWAY, WE COULD USE THAT INSTEAD OF SimMIM
+
+IF WE WANT ALSO TO ADD ANOTHER STRATEGY WE CAN USE ALSO BBWORLD OLD RESULTS? I CAN SAY IT'S THE COMBINATION OF MED-BOOSTER + CONTRASTIVE
+
+CHECK THE LAST LAYERS OF BOTH VERSION OF SUPERVISED RESNET VS TRANSFORMER
 3D:
 - use 3 axis 2D images  (not so easy to combine their embeddings anyway)
 - reduce resolution
@@ -19,3 +33,9 @@ ViT:
 
 additioanl ssl paradigms:
 - use best of both worlds or justify one of the algorithms they as it
+
+- replace simmim with MAE and its transformer
+
+The pre-training of a single supervised: 14481MiB /  46068MiB ce ne stanno 3:  43439MiB /  46068MiB
+
+The pre-training of a single vicreg: 

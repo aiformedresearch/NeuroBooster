@@ -166,8 +166,8 @@ def main(args):
         
         print(f'PROJECTOR DIMENSIONS: {args.projector}')
 
-        if ('beit' in args.backbone) and not(args.paradigm == 'simim'):
-            raise Exception('the transformer backbone is supposed to be used with simim paradigm')
+        # if ('beit' in args.backbone) and not(args.paradigm == 'simim'):
+        #     raise Exception('the transformer backbone is supposed to be used with simim paradigm')
 
         ########## LOSS FUNCTION
         if args.paradigm == 'supervised' or args.paradigm == 'medbooster':
@@ -383,13 +383,13 @@ def main(args):
 
 
 def create_dict_state(args, model, optimizer, epoch):        
-    if args.paradigm in ['simim']:
+    if (args.paradigm in ['simim']) or ('beit' in args.backbone) :
         state = dict(
         epoch=epoch + 1,
         model=copy.deepcopy(model.state_dict()),
         optimizer=copy.deepcopy(optimizer.state_dict()),
         )
-    if args.paradigm in ['supervised','medbooster']:
+    elif (args.paradigm in ['supervised','medbooster']) and ('resnet' in args.backbone):
         state = dict(
         epoch=epoch + 1,
         backbone=copy.deepcopy(model.backbone.state_dict()),
@@ -397,7 +397,7 @@ def create_dict_state(args, model, optimizer, epoch):
         optimizer=copy.deepcopy(optimizer.state_dict()),
         )
 
-    if args.paradigm in ['vicreg']:
+    elif (args.paradigm in ['vicreg']) and ('resnet' in args.backbone):
         state = dict(
         epoch=epoch + 1,
         backbone=copy.deepcopy(model.encoder.state_dict()),

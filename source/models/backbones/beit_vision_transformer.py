@@ -334,30 +334,7 @@ class VisionTransformer(nn.Module):
         x = self.head(x)
         return x
 
-def beit_small(args, **kwargs):
-
-
-    backbone =   VisionTransformer(img_size=args.resize_shape,
-    patch_size=args.simim_patch_size,
-    in_chans=args.simim_in_chans, #3
-    num_classes=0,
-    embed_dim=args.simim_emb_dim, #384 for Vit_small
-    depth=args.simim_depth,
-    num_heads=args.simim_num_heads, # 6 for Vit_small
-    mlp_ratio=args.simim_mlp_ratio, # 4 for Vit_small
-    drop_path_rate=args.simim_drop_path_rate,
-    norm_layer=partial(nn.LayerNorm, eps=1e-6),
-    use_shared_rel_pos_bias = False, # True
-    use_mean_pooling = True, # False
-    use_abs_pos_emb= False, # False
-    use_rel_pos_bias = True, # False
-    )
-
-    return backbone
-
-
 ############# VICREG:
-
 
 class VisionTransformerEncoder(nn.Module):
     """
@@ -462,8 +439,30 @@ def beit_encoder(args):
         mlp_ratio=args.simim_mlp_ratio,
         drop_path_rate=args.simim_drop_path_rate,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        use_abs_pos_emb=False,
-        use_rel_pos_bias=True,
         use_shared_rel_pos_bias=False,
-        use_mean_pooling=False,
+        use_mean_pooling=True,
+        use_abs_pos_emb=False,
+        use_rel_pos_bias=False,
+        
     )
+
+###################### finetuning model loading:
+def beit_small(args, **kwargs):
+
+    backbone =   VisionTransformer(img_size=args.resize_shape,
+    patch_size=args.simim_patch_size,
+    in_chans=args.simim_in_chans, #3
+    num_classes=0,
+    embed_dim=args.simim_emb_dim, #384 for Vit_small
+    depth=args.simim_depth,
+    num_heads=args.simim_num_heads, # 6 for Vit_small
+    mlp_ratio=args.simim_mlp_ratio, # 4 for Vit_small
+    drop_path_rate=args.simim_drop_path_rate,
+    norm_layer=partial(nn.LayerNorm, eps=1e-6),
+    use_shared_rel_pos_bias = False, # True
+    use_mean_pooling = True, # False
+    use_abs_pos_emb= False, # False
+    use_rel_pos_bias = True, # False
+    )
+
+    return backbone
