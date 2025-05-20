@@ -1,3 +1,10 @@
+
+check if longer finetuning makes simim better for age prediction
+
+check if MAE is better with same times
+
+
+
 1) add times computation
 2) add memory computation
 3) add FLOPs computation
@@ -38,4 +45,10 @@ additioanl ssl paradigms:
 
 The pre-training of a single supervised: 14481MiB /  46068MiB ce ne stanno 3:  43439MiB /  46068MiB
 
+finetuning seems 2900MiB
+
+one experiment folder = 342 MB
+
 The pre-training of a single vicreg: 
+
+

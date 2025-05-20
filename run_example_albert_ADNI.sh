@@ -4,15 +4,15 @@
 
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_4/}
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_ADNI_2025_05_20_1/}
 paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
-images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
-tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
+images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_axslicez127_info.csv}
 labels_percentage=${labels_percentage:-100}
 resize_shape=${resize_shape:-224}
-dataset_name=${dataset_name:-AGE}
+dataset_name=${dataset_name:-ADNI}
 train_classes_percentage_values=${train_classes_percentage_values:-None}
 num_classes=${num_classes:-2}
 balanced_val_set=${balanced_val_set:-True}

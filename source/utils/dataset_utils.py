@@ -298,22 +298,21 @@ def bootstrap(args):
         targets_val = np.array(targets[indexes_val])
 
         ######## make val set balanced:
-        if args.balanced_val_set:
-            classes_count_val = get_classes_count([targets[i] for i in indexes_val])
-            min_class_val = min(classes_count_val.values())
-            val_cl_0 = [idx for idx in indexes_val if targets[idx] == 0]
-            val_cl_1 = [idx for idx in indexes_val if targets[idx] == 1]
-            val_index_sampled = []
-            val_index_sampled += random.sample(val_cl_0, min_class_val)
-            val_index_sampled += random.sample(val_cl_1, min_class_val)
-            indexes_val = val_index_sampled
-            targets_val= np.array([targets[i] for i in indexes_val])
+        classes_count_val = get_classes_count([targets[i] for i in indexes_val])
+        min_class_val = min(classes_count_val.values())
+        val_cl_0 = [idx for idx in indexes_val if targets[idx] == 0]
+        val_cl_1 = [idx for idx in indexes_val if targets[idx] == 1]
+        val_index_sampled = []
+        val_index_sampled += random.sample(val_cl_0, min_class_val)
+        val_index_sampled += random.sample(val_cl_1, min_class_val)
+        indexes_val = val_index_sampled
+        targets_val= np.array([targets[i] for i in indexes_val])
 
-            shuffle_idxs = list(range(len(targets_train)))
-            np.random.shuffle(shuffle_idxs)
-            indexes_train = np.array(indexes_train)
-            indexes_train = indexes_train[shuffle_idxs]
-            targets_train = targets_train[shuffle_idxs]
+        shuffle_idxs = list(range(len(targets_train)))
+        np.random.shuffle(shuffle_idxs)
+        indexes_train = np.array(indexes_train)
+        indexes_train = indexes_train[shuffle_idxs]
+        targets_train = targets_train[shuffle_idxs]
 
         if args.paradigm == 'supervised' or args.workflow_step == 'fine_tune_evaluate':
             print(f'using {args.labels_percentage}% of the samples')
