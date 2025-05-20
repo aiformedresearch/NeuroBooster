@@ -1,23 +1,14 @@
 #!/bin/bash
 
-# docker run --rm --gpus all \
-#     --shm-size=8g \
-#     -e images_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz' \
-#     -e tabular_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz' \
-#     -e EXPERIMENT_FOLDER_NAME=/Ironman/scratch/Andrea/med-booster/EXPERIMENT_DEBUG_EXAMPLE_AGE_1 \
-#     -v /path/to/data:/app/data \
-#     -v /path/to/exp_folder:/app/exp_folder \
-#     med_booster_image
-
 # images_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz' tabular_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv' bash /home/andreaespis/diciotti/andrea/med-booster/MAIN/run_example.sh
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-./EXPERIMENT_DEBUG_EXAMPLE_AGE_1/}
-paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, simim
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_1/}
+paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
-images_dir=${images_dir:-path/to/folder/containing/images/}
-tabular_dir=${tabular_dir:-/path/to/folder/containing/tabular/data/}
+images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
 labels_percentage=${labels_percentage:-100}
 resize_shape=${resize_shape:-224}
 dataset_name=${dataset_name:-AGE}
@@ -30,7 +21,7 @@ augmentation_rate=${augmentation_rate:-0.9}
 
 # Model architecture
 projector=${projector:-1024-1024}
-backbone=${backbone:-resnet34} # beit_small for simim paradigm
+backbone=${backbone:-beit_small} # resnet34 only for supervised and VICReg, beit_small for simim, vicreg and  paradigm
 
 # General
 seed=${seed:-0}
@@ -133,10 +124,10 @@ echo "SimIM Mask Ratio: ${simim_mask_ratio}"
 echo "SimIM Drop Path Rate: ${simim_drop_path_rate}"
 
 mkdir -p ${EXPERIMENT_FOLDER_NAME};
-echo "created folder ${EXPERIMENT_FOLDER_NAME}"
 
 # Run pretraining script
-CUDA_VISIBLE_DEVICES=0 python /app/source/pretraining.py \
+export MKL_THREADING_LAYER=GNU
+CUDA_VISIBLE_DEVICES=0 python source/pretraining.py \
     --paradigm ${paradigm} \
     --labels_percentage ${labels_percentage} \
     --images_dir ${images_dir} \
@@ -177,15 +168,8 @@ CUDA_VISIBLE_DEVICES=0 python /app/source/pretraining.py \
     --weighted_loss ${pretrain_weighted_loss} \
     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
-if [ $? -ne 0 ]; then
-    echo "Pretraining script failed. Check the log file for details."
-    exit 1
-fi
-
-echo "Pretraining done. Log file saved to ${EXPERIMENT_FOLDER_NAME}/training_output.log"
-
 # Run finetuning script
-CUDA_VISIBLE_DEVICES=0 python /app/source/fine_tune_evaluate.py \
+CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate.py \
     --paradigm ${paradigm} \
     --images_dir ${images_dir} \
     --tabular_dir ${tabular_dir} \
@@ -226,11 +210,3 @@ CUDA_VISIBLE_DEVICES=0 python /app/source/fine_tune_evaluate.py \
     --min_epochs ${finetune_min_epochs} \
     --seed ${seed} \
     > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1
-
-
-if [ $? -ne 0 ]; then
-    echo "Finetuning script failed. Check the log file for details."
-    exit 1
-fi
-
-echo "Finetuning done. Log file saved to ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log"

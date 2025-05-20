@@ -3,7 +3,7 @@
 # images_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz' tabular_dir='/home/andreaespis/diciotti/data/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv' bash /home/andreaespis/diciotti/andrea/med-booster/MAIN/run_example.sh
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-./EXPERIMENT_DEBUG_EXAMPLE_AGE_1/}
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_1/}
 paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
@@ -21,7 +21,7 @@ augmentation_rate=${augmentation_rate:-0.9}
 
 # Model architecture
 projector=${projector:-1024-1024}
-backbone=${backbone:-resnet34} # beit_small for simim paradigm
+backbone=${backbone:-beit_small} # resnet34 only for supervised and VICReg, beit_small for simim, vicreg and  paradigm
 
 # General
 seed=${seed:-0}

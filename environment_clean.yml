@@ -1,0 +1,29 @@
+name: med_booster
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - scikit-image
+  - nibabel
+  - simpleitk
+  - ipykernel
+  - jupyterlab
+  - tqdm
+  - pip:
+      - torch==2.0.0
+      - torchvision==0.15.0+cu118
+      - torchaudio==2.0.0
+      - medmnist==3.0.2
+      - torchio==0.19.2
+      - timm
+      - huggingface-hub
+      - imageio
+      - opencv-python

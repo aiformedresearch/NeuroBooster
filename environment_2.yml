@@ -1,26 +1,35 @@
 name: med_booster
 channels:
-  - nvidia
   - pytorch
+  - nvidia
   - conda-forge
   - defaults
 dependencies:
   - python=3.10
-  - numpy=1.25.2
-  - numpy-base=1.25.2
-  - scikit-learn
-  - pandas
-  - tqdm
-  - pillow
-  - matplotlib
+  - pip
+  - numpy
   - scipy
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - scikit-image
   - nibabel
+  - simpleitk
   - pytorch=2.0.0
   - torchvision=0.15.0
   - torchaudio=2.0.0
   - pytorch-cuda=11.8
-  - pip
+  - ipykernel
+  - jupyterlab
+  - tqdm
   - pip:
-      - timm==0.4.9
       - medmnist==3.0.2
       - torchio==0.19.2
+      - timm
+      - huggingface-hub
+      - imageio
+      - opencv-python
+      - matplotlib
+      - scikit-image
+      - seaborn

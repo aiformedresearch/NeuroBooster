@@ -22,12 +22,12 @@ COPY environment.yml /app/environment.yml
 RUN /opt/conda/bin/conda env create -f /app/environment.yml
 
 # Copy bash script and source code into the container
-COPY run_example_docker.sh /app/MAIN/run_example_docker.sh
-COPY MAIN/source /app/MAIN/source
+COPY run_example_docker.sh /app/run_example_docker.sh
+COPY source /app/source
 
 # Activate the conda environment
 RUN echo "source activate $CONDA_ENV_NAME" > ~/.bashrc
 ENV PATH=/opt/conda/envs/$CONDA_ENV_NAME/bin:$PATH
 
 # Set entrypoint
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "med_booster", "bash", "/app/MAIN/run_example_docker.sh"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "med_booster", "bash", "/app/run_example_docker.sh"]
