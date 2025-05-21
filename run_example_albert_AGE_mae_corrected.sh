@@ -4,8 +4,8 @@
 
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_1_longer/}
-paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_1_mae_corrected/}
+paradigm=${paradigm:-mae} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
 # images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz}
@@ -30,6 +30,27 @@ backbone=${backbone:-beit_small} # resnet34 only for supervised and VICReg, beit
 seed=${seed:-0}
 num_workers=${num_workers:-4}
 device=${device:-cuda:0}
+
+### mae:
+# # pretraining
+# train_epochs=300
+# min_train_epochs=150
+# patience_train=15
+# train_batch_size=256
+# mae_warmup_epochs=20
+
+# # not used for mae:
+# optim=LARS
+# base_lr=0.05
+
+
+# # finetuning and validation
+# fine_tune_epochs=50
+# min_fine_tune_epochs=10
+# patience_fine_tune=5
+# val_batch_size=512
+# fine_tune_batch_size=512
+# head_lr=0.001
 
 
 # Pretraining
@@ -128,8 +149,8 @@ echo "SimIM Drop Path Rate: ${simim_drop_path_rate}"
 
 mkdir -p ${EXPERIMENT_FOLDER_NAME};
 
-# Run pretraining script
-# CUDA_VISIBLE_DEVICES=0 python source/pretraining.py \
+# #Run pretraining script
+# CUDA_VISIBLE_DEVICES=0 python source/pretraining_mae.py \
 #     --paradigm ${paradigm} \
 #     --labels_percentage ${labels_percentage} \
 #     --images_dir ${images_dir} \
@@ -171,7 +192,7 @@ mkdir -p ${EXPERIMENT_FOLDER_NAME};
 #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
 # Run finetuning script
-CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate.py \
+CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate_mae.py \
     --paradigm ${paradigm} \
     --images_dir ${images_dir} \
     --tabular_dir ${tabular_dir} \

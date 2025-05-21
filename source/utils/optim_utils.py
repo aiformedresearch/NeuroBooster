@@ -119,3 +119,21 @@ def adjust_learning_rate(args, optimizer, loader, step):
 
 def exclude_bias_and_norm(p):
     return p.ndim == 1
+
+
+def adjust_learning_rate_mae(optimizer, epoch, args):
+    """Decay the learning rate with half-cycle cosine after warmup"""
+    if epoch < args.mae_warmup_epochs:
+        lr = args.mae_lr * epoch / args.mae_warmup_epochs 
+    else:
+        lr = args.mae_min_lr + (args.mae_lr - args.mae_min_lr) * 0.5 * \
+            (1. + math.cos(math.pi * (epoch - args.mae_warmup_epochs) / (args.epochs - args.mae_warmup_epochs)))
+    for param_group in optimizer.param_groups:
+        if "lr_scale" in param_group:
+            param_group["lr"] = lr * param_group["lr_scale"]
+        else:
+            param_group["lr"] = lr
+    return lr
+
+def exclude_bias_and_norm(p):
+    return p.ndim == 1

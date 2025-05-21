@@ -45,10 +45,13 @@ additioanl ssl paradigms:
 
 The pre-training of a single supervised: 14481MiB /  46068MiB ce ne stanno 3:  43439MiB /  46068MiB
 
+the pre-training of mae: 10444MiB 
+
 finetuning seems 2900MiB
 
 one experiment folder = 342 MB
 
 The pre-training of a single vicreg: 
 
+LA GESTIONE DEL GRADIENTE IN MAE SEMBRA ESSERE LA CHIAVE DEI MIGLIORI RISULTATI!! 21 MAGGIO, COMPARA FINE_TUNING AND FINTE_TUNING_MAE, QUESTO PORTA A DIFFERENZE SOSTANZIALI ALMENO PER UN SEED.
 

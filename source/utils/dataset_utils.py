@@ -68,7 +68,7 @@ class ADNI_AGE_Dataset(Dataset):
             img_y = self.transform(original_img).repeat(3, 1, 1)
             tabular = torch.zeros(1) # no usage of tabular features
 
-        elif self.paradigm in ['supervised', 'medbooster']:
+        elif self.paradigm in ['supervised', 'medbooster', 'mae']:
             
             if random.random() < self.augmentation_rate:
                 img_x =  self.transform(original_img)
@@ -77,7 +77,10 @@ class ADNI_AGE_Dataset(Dataset):
                 img_x = self.default_transform(original_img)
                 img_x = img_x.repeat(3, 1, 1)
             img_y = torch.zeros(1)
-            tabular = self.fold_targets[index]
+            if self.paradigm == 'mae':
+                tabular = torch.zeros(1) # no use of tabular features
+            else:
+                tabular = self.fold_targets[index]
 
         elif self.paradigm in ['simim']:
             if random.random() < self.augmentation_rate:
