@@ -4,7 +4,7 @@
 
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_22_1_deit_superv/}
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENTS_2025_05_22_1_deit_superv/}
 paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
@@ -30,28 +30,6 @@ backbone=${backbone:-deit} # resnet34 only for supervised and VICReg, beit_small
 seed=${seed:-0}
 num_workers=${num_workers:-4}
 device=${device:-cuda:0}
-
-### mae:
-# # pretraining
-# train_epochs=300
-# min_train_epochs=150
-# patience_train=15
-# train_batch_size=256
-# mae_warmup_epochs=20
-
-# # not used for mae:
-# optim=LARS
-# base_lr=0.05
-
-
-# # finetuning and validation
-# fine_tune_epochs=50
-# min_fine_tune_epochs=10
-# patience_fine_tune=5
-# val_batch_size=512
-# fine_tune_batch_size=512
-# head_lr=0.001
-
 
 # Pretraining
 pretrain_epochs=${pretrain_epochs:-300}

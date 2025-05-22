@@ -160,6 +160,9 @@ def main(args):
         args.exp_dir.mkdir(parents=True, exist_ok=True)
 
         # prepare files and folders to save info in real time during the execution of the script
+        if args.backbone != 'beit_small':
+            print(f'{args.backbone} is being changed to "beit_small" which is the only tested architecture for simim in this repo')
+            args.backbone='beit_small'
         all_stats_file = open(args.exp_dir / "pretraining_all_stats.txt", "a", buffering=1)
         model_info_file = open(args.exp_dir / "pretraining_model_info.txt", "a", buffering=1)
         save_df_train_path = plot_df_train_path = args.exp_dir / 'pretraining_metrics'        
@@ -315,7 +318,7 @@ def main(args):
                 weight_decay=args.weight_decay,
                 )
 
-        elif 'beit' in args.backbone:
+        elif ('beit' in args.backbone) or ('deit' in args.backbone):
             from utils.simim_optim import build_scheduler,build_optimizer 
             optimizer = build_optimizer(args, model, is_pretrain=True)
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
@@ -369,6 +372,7 @@ def main(args):
                 with torch.cuda.amp.autocast():
                     if args.paradigm == 'mae':
                         loss, _, _ = model(img_x.cuda(gpu,non_blocking=True), mask_ratio=args.mae_mask_ratio)
+                        step_metrics = {'loss':loss.item()}
                     
                     elif args.paradigm == 'simim':
                         img_x = img_x.cuda(gpu,non_blocking=True)
@@ -427,7 +431,7 @@ def main(args):
                 
                 # else:
                 scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
-                if ('deit' in args.backbone) or ('beit' in args.backbone)
+                if ('deit' in args.backbone) or ('beit' in args.backbone):
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
                     lr_scheduler.step_update(epoch * num_steps + step)
                 scaler.step(optimizer)
