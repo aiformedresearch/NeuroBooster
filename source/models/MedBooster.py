@@ -32,7 +32,6 @@ class init_medbooster_deit(nn.Module):
     def __init__(self, args):
         super().__init__()
 
-        ####################### MODEL and optimization
         self.model = MAE_pretrain_model_no_masking_no_decoder.__dict__[args.mae_model](
             num_classes=args.num_classes,
             global_pool=False,
@@ -40,7 +39,16 @@ class init_medbooster_deit(nn.Module):
 
         num_nodes_embedding = self.model.head.in_features
         self.model.head = Projector(args, num_nodes_embedding)
-        
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.model(x)
-        return x
+        return self.model(x)
+
+    @property
+    def head(self):
+        return self.model.head
+
+    @head.setter
+    def head(self, value):
+        self.model.head = value
+
+    

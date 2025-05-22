@@ -4,8 +4,8 @@
 
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_1_mae_corrected_deit_super_nomasknodec_longerpret/}
-paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_22_1_deit_vicreg/}
+paradigm=${paradigm:-vicreg} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
 # images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz}
@@ -24,7 +24,7 @@ augmentation_rate=${augmentation_rate:-0.9}
 
 # Model architecture
 projector=${projector:-1024-1024}
-backbone=${backbone:-beit_small} # resnet34 only for supervised and VICReg, beit_small for simim, vicreg and  paradigm
+backbone=${backbone:-deit} # resnet34 only for supervised and VICReg, beit_small for simim, vicreg and  paradigm
 
 # General
 seed=${seed:-0}
@@ -54,9 +54,9 @@ device=${device:-cuda:0}
 
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-2500}
-pretrain_min_epochs=${pretrain_min_epochs:-100}
-pretrain_patience=${pretrain_patience:-100}
+pretrain_epochs=${pretrain_epochs:-300}
+pretrain_min_epochs=${pretrain_min_epochs:-200}
+pretrain_patience=${pretrain_patience:-50}
 pretrain_batch_size=${pretrain_batch_size:-256}
 pretrain_optim=${pretrain_optim:-LARS}
 pretrain_base_lr=${pretrain_base_lr:-0.05}

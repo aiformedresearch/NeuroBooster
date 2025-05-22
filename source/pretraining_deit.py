@@ -17,8 +17,8 @@ import math
 from utils.model_utils import NativeScalerWithGradNormCount as NativeScaler
 
 # models
-from models.VICReg import init_vicreg
-from models.MedBooster import init_medbooster
+from models.VICReg import init_vicreg, init_vicreg_deit
+from models.MedBooster import init_medbooster, init_medbooster_deit
 from models.SimMIM import init_simim
 from models import MAE_pretrain_model
 
@@ -79,6 +79,7 @@ def get_arguments():
     parser.add_argument("--simim_mask_patch_size", type = int, default =32, help='SimMIM data augmentation param: mask patch size')
     parser.add_argument("--simim_mask_ratio", type = float, default =0.5, help='SimMIM data augmentation param: mask ratio')
     parser.add_argument("--simim_drop_path_rate", type = float, default =0.1, help='SimMIM data augmentation param: drop path rate')
+    parser.add_argument("--simim_lr", type = float, default =5e-4, help='SimMIM data augmentation param: drop path rate')
 
     parser.add_argument('--mae_model', default='mae_vit_small_patch16', type=str,
                         help='Masking ratio (percentage of removed patches).')
@@ -208,8 +209,10 @@ def main(args):
         ########## LOSS FUNCTION
         if args.paradigm == 'supervised' or args.paradigm == 'medbooster':
 
-            if args.backbone in 'deit':
+            if 'deit' in args.backbone:
+                print('init deit backbone')
                 model = init_medbooster_deit(args).cuda(gpu)
+                print(model)
             else:
                 model = init_medbooster(args).cuda(gpu)
 
@@ -235,7 +238,7 @@ def main(args):
                 criterion = nn.BCEWithLogitsLoss(pos_weight = pos_weight).cuda(gpu) # sigmoid + BCELoss = BCEWithLogitsLoss
     
         elif args.paradigm =='vicreg':
-            if args.backbone in 'deit':
+            if 'deit' in args.backbone:
                 model = init_vicreg_deit(args).cuda(gpu)
             else:
                 model = init_vicreg(args).cuda(gpu)
@@ -248,7 +251,7 @@ def main(args):
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
 
-        if args.backbone == 'deit':
+        if 'deit' in args.backbone:
             # ====== BEGIN MAE-DERIVED CODE ======
             # Adapted from https://github.com/facebookresearch/mae
             # Licensed under CC BY-NC 4.0
@@ -287,7 +290,7 @@ def main(args):
         )
 
         # optimizer
-        if not(args.backbone in ['beit','deit']):
+        if 'resnet' in args.backbone:
             if args.optim == 'SGD':
                 print('optimizer: SGD')
                 optimizer = torch.optim.SGD(param_groups, lr=0)
@@ -310,8 +313,9 @@ def main(args):
                 weight_decay=args.weight_decay,
                 )
 
-        elif args.backbone == 'beit':
+        elif 'beit' in args.backbone:
             from utils.simim_optim import build_scheduler,build_optimizer 
+            lr = args.simim_lr
             optimizer = build_optimizer(args, model, is_pretrain=True)
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
             num_steps = len(loader)
@@ -337,6 +341,8 @@ def main(args):
         model.requires_grad_(True)
         model = model.cuda(gpu)
         best_loss = 1e10
+        accum_iter = 1                
+        
         if fold == 0:
             arg_dict = vars(args)
             with open(args.exp_dir/'args_pretraining.txt', "w") as file:
@@ -348,13 +354,54 @@ def main(args):
 
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
-            if args.backbone == 'deit':
-                accum_iter = 1 # check the actual usage of the gradient accumulation from mae repo, we implement only the default with accum_iter=1
+
+            if 'deit' in args.backbone:
                 optimizer.zero_grad()
+
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
-                if args.backbone == 'deit':
-                    img_x = img_x.to(torch.float32)  
-                    img_y = img_y.to(torch.float32) 
+                img_x = img_x.to(torch.float32)  
+                img_y = img_y.to(torch.float32) 
+
+                if not('deit' in args.backbone):
+                    optimizer.zero_grad()
+
+                with torch.cuda.amp.autocast():
+                    if args.paradigm == 'mae':
+                        loss, _, _ = model(img_x.cuda(gpu,non_blocking=True), mask_ratio=args.mae_mask_ratio)
+                    
+                    elif args.paradigm == 'simim':
+                        img_x = img_x.cuda(gpu,non_blocking=True)
+                        mask = img_y.cuda(gpu,non_blocking=True)
+                        img_rec, mask = model(img_x, mask)
+                        loss = criterion(img_x, img_rec, mask, model.in_chans, model.patch_size)
+                        step_metrics = {'loss':loss.item()}
+                    
+                    elif args.paradigm == 'vicreg':
+                        z_x,z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
+                        loss, sim_loss, std_loss, cov_loss = criterion(z_x,z_y)
+                        step_metrics = {'loss': loss.item(), 'sim_loss': sim_loss.item(), 'std_loss':std_loss.item(), 'cov_loss':cov_loss.item()}
+
+                    elif (args.paradigm == 'medbooster') or (args.paradigm == 'supervised') :
+                        output = model.forward(img_x.cuda(gpu,non_blocking=True))
+                        tabular = tabular.to(torch.float16)
+                        if len(tabular.shape)==1:
+                            tabular = tabular.reshape(-1,1)
+                        loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
+                        with torch.no_grad():
+                            if args.task == 'regression':
+                                if tabular_scaler_fold_i:
+                                    rescaled_loss = criterion(torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())).cuda(gpu,non_blocking=True), torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu())).cuda(gpu,non_blocking=True))
+                                else:
+                                    rescaled_loss = loss
+                                
+                                step_metrics = {'loss':loss.item(), 'rescaled_loss':rescaled_loss.item()}
+                            else:
+                                step_metrics = {'loss':loss.item()}
+                    
+                if not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
+                    lr = adjust_learning_rate(args, optimizer, loader, step)
+
+                if 'deit' in args.backbone:
                     # ====== BEGIN MAE-DERIVED CODE ======
                     # Adapted from https://github.com/facebookresearch/mae
                     # Licensed under CC BY-NC 4.0
@@ -362,21 +409,8 @@ def main(args):
                     # we use a per iteration (instead of per epoch) lr scheduler
                     if step % accum_iter == 0:
                         adjust_learning_rate_mae(optimizer, step / len(loader) + epoch, args)
-                    img_x = img_x.cuda(gpu,non_blocking=True)
+                    
                     #samples = samples.to(device, non_blocking=True)
-
-                    with torch.cuda.amp.autocast():
-                        if args.paradigm == 'mae':
-                            loss, _, _ = model(img_x, mask_ratio=args.mae_mask_ratio)
-
-                        elif args.paradigm == 'supervised':
-                            output = model.forward(img_x.cuda(gpu,non_blocking=True))
-                            tabular = tabular.to(torch.float16)
-                            if len(tabular.shape)==1:
-                                tabular = tabular.reshape(-1,1)
-                            loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
-
-
                     loss_value = loss.item()
 
                     if not math.isfinite(loss_value):
@@ -390,55 +424,6 @@ def main(args):
                     step_metrics = {'loss':loss.item()}
                     # ====== END MAE-DERIVED CODE ======
 
-                if not(args.backbone in ['deit','beit']):
-                    lr = adjust_learning_rate(args, optimizer, loader, step)
-                else:
-                    lr = 5e-4
-
-                if not(args.backbone == 'deit'):
-                    optimizer.zero_grad()
-
-                if args.paradigm == 'simim':
-                    img_x = img_x.cuda(gpu,non_blocking=True)
-                    mask = img_y.cuda(gpu,non_blocking=True)
-                    img_rec, mask = model(img_x, mask)
-                    loss = criterion(img_x, img_rec, mask, model.in_chans, model.patch_size)
-                    step_metrics = {'loss':loss.item()}
-
-                elif args.paradigm == 'vicreg':
-                    with torch.cuda.amp.autocast():
-                        z_x,z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
-                        loss, sim_loss, std_loss, cov_loss = criterion(z_x,z_y)
-                        step_metrics = {'loss': loss.item(), 'sim_loss': sim_loss.item(), 'std_loss':std_loss.item(), 'cov_loss':cov_loss.item()}
-
-                elif (args.paradigm == 'medbooster') or  (args.paradigm == 'supervised') :
-                        
-                    with torch.cuda.amp.autocast():  # automaitc mixed precision
-                        if not args.backbone == 'deit':
-                            output = model.forward(img_x.cuda(gpu,non_blocking=True))
-                            tabular = tabular.to(torch.float16)
-                            if len(tabular.shape)==1:
-                                tabular = tabular.reshape(-1,1)
-                            loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
-                        with torch.no_grad():
-                            if args.task == 'regression':
-                                if tabular_scaler_fold_i:
-                                    rescaled_loss = criterion(torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())).cuda(gpu,non_blocking=True), torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu())).cuda(gpu,non_blocking=True))
-                                else:
-                                    rescaled_loss = loss
-                                
-                                step_metrics = {'loss':loss.item(), 'rescaled_loss':rescaled_loss.item()}
-                            else:
-                                step_metrics = {'loss':loss.item()}
-                                optimizer.step()
-                
-                
-                if args.backbone == 'deit':
-                    # ====== BEGIN MAE-DERIVED CODE ======
-                    # Adapted from https://github.com/facebookresearch/mae
-                    # Licensed under CC BY-NC 4.0
-
-                    # using official MAE repo loss scaler
                     loss_scaler(loss, optimizer, parameters=model.parameters(),
                     update_grad=(step + 1) % accum_iter == 0)
                     if (step + 1) % accum_iter == 0:
@@ -526,7 +511,7 @@ def create_dict_state(args, model, optimizer, epoch):
         optimizer=copy.deepcopy(optimizer.state_dict()),
         )           
 
-    elif args.backbone in ['deit']:
+    elif 'deit' in args.backbone:
         state = dict(
         epoch=epoch + 1,
         model=copy.deepcopy(model.state_dict()),

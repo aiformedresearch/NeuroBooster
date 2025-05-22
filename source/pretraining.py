@@ -323,8 +323,7 @@ def main(args):
                                 step_metrics = {'loss':loss.item(), 'rescaled_loss':rescaled_loss.item()}
                             else:
                                 step_metrics = {'loss':loss.item()}
-                                optimizer.step()
-                
+
                 scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
                 if args.paradigm == 'simim':
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)

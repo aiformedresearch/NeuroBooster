@@ -4,8 +4,8 @@
 
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_1_mae_corrected/}
-paradigm=${paradigm:-mae} # choices: supervised, medbooster, vicreg, bbworld, simim
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_22_1_deit_medbooster/}
+paradigm=${paradigm:-medbooster} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
 # images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz}
@@ -24,7 +24,7 @@ augmentation_rate=${augmentation_rate:-0.9}
 
 # Model architecture
 projector=${projector:-1024-1024}
-backbone=${backbone:-beit_small} # resnet34 only for supervised and VICReg, beit_small for simim, vicreg and  paradigm
+backbone=${backbone:-deit} # resnet34 only for supervised and VICReg, beit_small for simim, vicreg and  paradigm
 
 # General
 seed=${seed:-0}
@@ -149,50 +149,50 @@ echo "SimIM Drop Path Rate: ${simim_drop_path_rate}"
 
 mkdir -p ${EXPERIMENT_FOLDER_NAME};
 
-# #Run pretraining script
-# CUDA_VISIBLE_DEVICES=2 python source/pretraining_mae.py \
-#     --paradigm ${paradigm} \
-#     --labels_percentage ${labels_percentage} \
-#     --images_dir ${images_dir} \
-#     --tabular_dir ${tabular_dir} \
-#     --dataset_name ${dataset_name} \
-#     --seed ${seed} \
-#     --exp-dir ${EXPERIMENT_FOLDER_NAME} \
-#     --backbone ${backbone} \
-#     --projector ${projector} \
-#     --batch-size ${pretrain_batch_size} \
-#     --cross_val_folds ${cross_val_folds} \
-#     --device ${device} \
-#     --base_lr ${pretrain_base_lr} \
-#     --optim ${pretrain_optim} \
-#     --min_epochs ${pretrain_min_epochs} \
-#     --patience ${pretrain_patience} \
-#     --num_workers ${num_workers} \
-#     --epochs ${pretrain_epochs} \
-#     --resize_shape ${resize_shape} \
-#     --normalization ${normalization} \
-#     --augmentation_rate ${augmentation_rate} \
-#     --vicreg_sim_coeff ${vicreg_sim_coeff} \
-#     --vicreg_std_coeff ${vicreg_std_coeff} \
-#     --vicreg_cov_coeff ${vicreg_cov_coeff} \
-#     --simim_bottleneck ${simim_bottleneck} \
-#     --simim_depth ${simim_depth} \
-#     --simim_mlp_ratio ${simim_mlp_ratio} \
-#     --simim_num_heads ${simim_num_heads} \
-#     --simim_emb_dim ${simim_emb_dim} \
-#     --simim_encoder_stride ${simim_encoder_stride} \
-#     --simim_in_chans ${simim_in_chans} \
-#     --simim_use_bn ${simim_use_bn} \
-#     --simim_patch_size ${simim_patch_size} \
-#     --simim_mask_patch_size ${simim_mask_patch_size} \
-#     --simim_mask_ratio ${simim_mask_ratio} \
-#     --simim_drop_path_rate ${simim_drop_path_rate} \
-#     --weight-decay ${pretrain_weight_decay} \
-#     --weighted_loss ${pretrain_weighted_loss} \
-#     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
+#Run pretraining script
+CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit.py \
+    --paradigm ${paradigm} \
+    --labels_percentage ${labels_percentage} \
+    --images_dir ${images_dir} \
+    --tabular_dir ${tabular_dir} \
+    --dataset_name ${dataset_name} \
+    --seed ${seed} \
+    --exp-dir ${EXPERIMENT_FOLDER_NAME} \
+    --backbone ${backbone} \
+    --projector ${projector} \
+    --batch-size ${pretrain_batch_size} \
+    --cross_val_folds ${cross_val_folds} \
+    --device ${device} \
+    --base_lr ${pretrain_base_lr} \
+    --optim ${pretrain_optim} \
+    --min_epochs ${pretrain_min_epochs} \
+    --patience ${pretrain_patience} \
+    --num_workers ${num_workers} \
+    --epochs ${pretrain_epochs} \
+    --resize_shape ${resize_shape} \
+    --normalization ${normalization} \
+    --augmentation_rate ${augmentation_rate} \
+    --vicreg_sim_coeff ${vicreg_sim_coeff} \
+    --vicreg_std_coeff ${vicreg_std_coeff} \
+    --vicreg_cov_coeff ${vicreg_cov_coeff} \
+    --simim_bottleneck ${simim_bottleneck} \
+    --simim_depth ${simim_depth} \
+    --simim_mlp_ratio ${simim_mlp_ratio} \
+    --simim_num_heads ${simim_num_heads} \
+    --simim_emb_dim ${simim_emb_dim} \
+    --simim_encoder_stride ${simim_encoder_stride} \
+    --simim_in_chans ${simim_in_chans} \
+    --simim_use_bn ${simim_use_bn} \
+    --simim_patch_size ${simim_patch_size} \
+    --simim_mask_patch_size ${simim_mask_patch_size} \
+    --simim_mask_ratio ${simim_mask_ratio} \
+    --simim_drop_path_rate ${simim_drop_path_rate} \
+    --weight-decay ${pretrain_weight_decay} \
+    --weighted_loss ${pretrain_weighted_loss} \
+    > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
 # Run finetuning script
-CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_mae.py \
+CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
     --paradigm ${paradigm} \
     --images_dir ${images_dir} \
     --tabular_dir ${tabular_dir} \
