@@ -79,7 +79,6 @@ def get_arguments():
     parser.add_argument("--simim_mask_patch_size", type = int, default =32, help='SimMIM data augmentation param: mask patch size')
     parser.add_argument("--simim_mask_ratio", type = float, default =0.5, help='SimMIM data augmentation param: mask ratio')
     parser.add_argument("--simim_drop_path_rate", type = float, default =0.1, help='SimMIM data augmentation param: drop path rate')
-    parser.add_argument("--simim_lr", type = float, default =5e-4, help='SimMIM data augmentation param: drop path rate')
 
     parser.add_argument('--mae_model', default='mae_vit_small_patch16', type=str,
                         help='Masking ratio (percentage of removed patches).')
@@ -251,23 +250,23 @@ def main(args):
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
 
-        if 'deit' in args.backbone:
-            # ====== BEGIN MAE-DERIVED CODE ======
-            # Adapted from https://github.com/facebookresearch/mae
-            # Licensed under CC BY-NC 4.0
-            print(args.mae_lr)
-            if args.mae_lr is None:  # only base_lr is specified
-                args.accum_iter = 1
-                eff_batch_size = args.batch_size * args.accum_iter * 1 #misc.get_world_size() =1
-                args.mae_lr = args.mae_blr * eff_batch_size / 256
-            param_groups = optim_factory.add_weight_decay(model, args.mae_weight_decay)
-            optimizer = torch.optim.AdamW(param_groups, lr=args.mae_lr, betas=(0.9, 0.95))
-            print(optimizer)
-            loss_scaler = NativeScaler()
-            # ====== END MAE-DERIVED CODE ======
+        # if 'deit' in args.backbone:
+        #     # ====== BEGIN MAE-DERIVED CODE ======
+        #     # Adapted from https://github.com/facebookresearch/mae
+        #     # Licensed under CC BY-NC 4.0
+        #     print(args.mae_lr)
+        #     if args.mae_lr is None:  # only base_lr is specified
+        #         args.accum_iter = 1
+        #         eff_batch_size = args.batch_size * args.accum_iter * 1 #misc.get_world_size() =1
+        #         args.mae_lr = args.mae_blr * eff_batch_size / 256
+        #     param_groups = optim_factory.add_weight_decay(model, args.mae_weight_decay)
+        #     optimizer = torch.optim.AdamW(param_groups, lr=args.mae_lr, betas=(0.9, 0.95))
+        #     print(optimizer)
+        #     loss_scaler = NativeScaler()
+        #     # ====== END MAE-DERIVED CODE ======
 
-        else:
-            param_groups = model.parameters()
+        # else:
+        param_groups = model.parameters()
 
         ######### OPTIMIZATION:
         #### loader setup
@@ -290,6 +289,9 @@ def main(args):
         )
 
         # optimizer
+        if ('beit' in args.backbone) or ('deit' in args.backbone):
+            lr = 5e-4
+
         if 'resnet' in args.backbone:
             if args.optim == 'SGD':
                 print('optimizer: SGD')
@@ -315,7 +317,6 @@ def main(args):
 
         elif 'beit' in args.backbone:
             from utils.simim_optim import build_scheduler,build_optimizer 
-            lr = args.simim_lr
             optimizer = build_optimizer(args, model, is_pretrain=True)
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
             num_steps = len(loader)
@@ -355,15 +356,15 @@ def main(args):
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
 
-            if 'deit' in args.backbone:
-                optimizer.zero_grad()
+            # if 'deit' in args.backbone:
+            #     optimizer.zero_grad()
 
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
                 img_x = img_x.to(torch.float32)  
                 img_y = img_y.to(torch.float32) 
 
-                if not('deit' in args.backbone):
-                    optimizer.zero_grad()
+                #if not('deit' in args.backbone):
+                optimizer.zero_grad()
 
                 with torch.cuda.amp.autocast():
                     if args.paradigm == 'mae':
@@ -401,42 +402,36 @@ def main(args):
                 if not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
                     lr = adjust_learning_rate(args, optimizer, loader, step)
 
-                if 'deit' in args.backbone:
-                    # ====== BEGIN MAE-DERIVED CODE ======
-                    # Adapted from https://github.com/facebookresearch/mae
-                    # Licensed under CC BY-NC 4.0
+                # if 'deit' in args.backbone:
+                #     # ====== BEGIN MAE-DERIVED CODE ======
+                #     # Adapted from https://github.com/facebookresearch/mae
+                #     # Licensed under CC BY-NC 4.0
 
-                    # we use a per iteration (instead of per epoch) lr scheduler
-                    if step % accum_iter == 0:
-                        adjust_learning_rate_mae(optimizer, step / len(loader) + epoch, args)
+                #     # per iteration (instead of per epoch) lr scheduler
+                #     adjust_learning_rate_mae(optimizer, step / len(loader) + epoch, args)
                     
-                    #samples = samples.to(device, non_blocking=True)
-                    loss_value = loss.item()
+                #     #samples = samples.to(device, non_blocking=True)
+                #     loss_value = loss.item()
 
-                    if not math.isfinite(loss_value):
-                        print("Loss is {}, stopping training".format(loss_value))
-                        sys.exit(1)
+                #     if not math.isfinite(loss_value):
+                #         print("Loss is {}, stopping training".format(loss_value))
+                #         sys.exit(1)
 
-                    loss /= accum_iter
-                    #torch.cuda.synchronize()
+                #     lr = optimizer.param_groups[0]["lr"]
+                #     step_metrics = {'loss':loss.item()}
+                #     # ====== END MAE-DERIVED CODE ======
 
-                    lr = optimizer.param_groups[0]["lr"]
-                    step_metrics = {'loss':loss.item()}
-                    # ====== END MAE-DERIVED CODE ======
-
-                    loss_scaler(loss, optimizer, parameters=model.parameters(),
-                    update_grad=(step + 1) % accum_iter == 0)
-                    if (step + 1) % accum_iter == 0:
-                        optimizer.zero_grad()
-                    # ====== END MAE-DERIVED CODE ======
+                #     loss_scaler(loss, optimizer, parameters=model.parameters(), update_grad=True)
+                #     optimizer.zero_grad()
+                #     # ====== END MAE-DERIVED CODE ======
                 
-                else:
-                    scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
-                    if args.paradigm == 'simim':
-                        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
-                        lr_scheduler.step_update(epoch * num_steps + step)
-                    scaler.step(optimizer)
-                    scaler.update()
+                # else:
+                scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
+                if ('deit' in args.backbone) or ('beit' in args.backbone)
+                    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                    lr_scheduler.step_update(epoch * num_steps + step)
+                scaler.step(optimizer)
+                scaler.update()
 
                 # compute avg loss:
                 with torch.no_grad():

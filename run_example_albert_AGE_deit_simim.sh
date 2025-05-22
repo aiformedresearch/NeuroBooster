@@ -59,7 +59,7 @@ pretrain_min_epochs=${pretrain_min_epochs:-200}
 pretrain_patience=${pretrain_patience:-50}
 pretrain_batch_size=${pretrain_batch_size:-256}
 pretrain_optim=${pretrain_optim:-LARS}
-pretrain_base_lr=${pretrain_base_lr:-0.05}
+pretrain_base_lr=${pretrain_base_lr:-0.05} #5e-4 fixed for beit or deit backbone!!
 pretrain_weight_decay=${pretrain_weight_decay:-1e-6}
 pretrain_weighted_loss=${pretrain_weighted_loss:-True} # in our experiments the pre-training was performed solely on the regression task so this parameter was not used
 
