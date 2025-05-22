@@ -1,3 +1,31 @@
+Reasoning:
+
+perchè anche MAE? è più adatto a small dataset, per via del transformer DeiT
+
+se funziona meglio di resnet bene perchè posso implementare i vari paradigmi col transformer. 
+Se invece resnet funziona meglio, che è piu probabile perchè abbiamo dataset piccoli, 
+allora il problema sarebbe re-implementare masked image modeling con resnet che non è tipico.
+Però, se supervised, medbooster e contrastive a parità di architettura funzionano meglio del masked image modeling possono motivare la scelta di non 
+implementare il masked image modeling con una arcitettura che usa resnet (che tra l'altro non sarebbe efficiente e nemmeno mai usata).
+
+
+nel primo esperimento MAE usa un diverso positional embedding, learnable, devo provare con fixed in entrambi i casi
+
+the MAE transformer looks better than SimMIM, the reason is likely to be because DeiT is better suit for small datasets. 
+
+They might tell us that we should train with bigger datasets -> not available.
+
+What if it performs better ResNet? it makes sense because we're talking about smaller datasets. We might do the comparison just for
+a single dataset because then we say that we performed the other experiments only with the best architecture. 
+ 
+How to implement the other medical paradigm? we need first to see if it is better resnet or deit. 
+
+What if supervised and medbooster are worse than MAE? compare also medbooster + bbworld
+
+it might need longer training 
+
+potremmo applicare le reti preallenate per un problema di object detection/segmentation
+
 
 check if longer finetuning makes simim better for age prediction
 
@@ -55,3 +83,25 @@ The pre-training of a single vicreg:
 
 LA GESTIONE DEL GRADIENTE IN MAE SEMBRA ESSERE LA CHIAVE DEI MIGLIORI RISULTATI!! 21 MAGGIO, COMPARA FINE_TUNING AND FINTE_TUNING_MAE, QUESTO PORTA A DIFFERENZE SOSTANZIALI ALMENO PER UN SEED.
 
+abltation studies ideas:
+- compare resnet vs beit vs deit only with supervised training and only one dataset
+- re-train SimMIM with gradient management as MAE
+- add bbworld as medbooster + contrastive
+
+
+rimuovi .float 32, traina con stesso management di simim? almeno pretraining?
+
+
+
+see if this brings an improvement to CLAM:
+from tiatoolbox.models.engine.nucleus_instance_seg import NucleusInstanceSegmentor
+import os
+
+model = NucleusInstanceSegmentor(pretrained_model='hovernet_fast-pannuke')
+
+results = model.predict_batch(
+    input_dir="/path/to/patches/",
+    save_dir="/path/to/output/",
+    mode="patch",
+    on_gpu=True
+)

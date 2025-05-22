@@ -1,9 +1,12 @@
 
 import models.backbones.resnet as resnet
 from models.backbones.beit_vision_transformer import beit_encoder
+from models.backbones import deit_vision_transformer
 import torch
 from torch import nn
 from models.VICReg import Projector
+# from models import MAE_finetune_model # this has learnable pos embedding
+from models import MAE_pretrain_model_no_masking_no_decoder
 
 class init_medbooster(nn.Module):
     def __init__(self, args):
@@ -22,4 +25,22 @@ class init_medbooster(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.backbone(x)
         x = self.head(x)
+        return x
+
+
+class init_medbooster_deit(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+
+        ####################### MODEL and optimization
+        self.model = MAE_pretrain_model_no_masking_no_decoder.__dict__[args.mae_model](
+            num_classes=args.num_classes,
+            global_pool=False,
+        )
+
+        num_nodes_embedding = self.model.head.in_features
+        self.model.head = Projector(args, num_nodes_embedding)
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.model(x)
         return x

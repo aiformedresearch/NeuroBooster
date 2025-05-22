@@ -129,7 +129,7 @@ echo "SimIM Drop Path Rate: ${simim_drop_path_rate}"
 mkdir -p ${EXPERIMENT_FOLDER_NAME};
 
 # Run pretraining script
-# CUDA_VISIBLE_DEVICES=0 python source/pretraining.py \
+# CUDA_VISIBLE_DEVICES=2 python source/pretraining.py \
 #     --paradigm ${paradigm} \
 #     --labels_percentage ${labels_percentage} \
 #     --images_dir ${images_dir} \
@@ -171,7 +171,7 @@ mkdir -p ${EXPERIMENT_FOLDER_NAME};
 #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
 # Run finetuning script
-CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate.py \
+CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate.py \
     --paradigm ${paradigm} \
     --images_dir ${images_dir} \
     --tabular_dir ${tabular_dir} \

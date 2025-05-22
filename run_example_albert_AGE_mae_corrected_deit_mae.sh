@@ -4,15 +4,17 @@
 
 
 # Assign default values if environment variables are not set
-EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_ADNI_2025_05_20_1/}
-paradigm=${paradigm:-supervised} # choices: supervised, medbooster, vicreg, bbworld, simim
+EXPERIMENT_FOLDER_NAME=${EXPERIMENT_FOLDER_NAME:-../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_1_mae_corrected_deit_mae_nomasknodec_longerpret/}
+paradigm=${paradigm:-mae} # choices: supervised, medbooster, vicreg, bbworld, simim
 
 # Data
-images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz}
-tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_axslicez127_info.csv}
+# images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz}
+# tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_axslicez127_info.csv}
+images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
 labels_percentage=${labels_percentage:-100}
 resize_shape=${resize_shape:-224}
-dataset_name=${dataset_name:-ADNI}
+dataset_name=${dataset_name:-AGE}
 train_classes_percentage_values=${train_classes_percentage_values:-None}
 num_classes=${num_classes:-2}
 balanced_val_set=${balanced_val_set:-True}
@@ -29,11 +31,32 @@ seed=${seed:-0}
 num_workers=${num_workers:-4}
 device=${device:-cuda:0}
 
+### mae:
+# # pretraining
+# train_epochs=300
+# min_train_epochs=150
+# patience_train=15
+# train_batch_size=256
+# mae_warmup_epochs=20
+
+# # not used for mae:
+# optim=LARS
+# base_lr=0.05
+
+
+# # finetuning and validation
+# fine_tune_epochs=50
+# min_fine_tune_epochs=10
+# patience_fine_tune=5
+# val_batch_size=512
+# fine_tune_batch_size=512
+# head_lr=0.001
+
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-300}
-pretrain_min_epochs=${pretrain_min_epochs:-200}
-pretrain_patience=${pretrain_patience:-50}
+pretrain_epochs=${pretrain_epochs:-2500}
+pretrain_min_epochs=${pretrain_min_epochs:-100}
+pretrain_patience=${pretrain_patience:-100}
 pretrain_batch_size=${pretrain_batch_size:-256}
 pretrain_optim=${pretrain_optim:-LARS}
 pretrain_base_lr=${pretrain_base_lr:-0.05}
@@ -126,9 +149,8 @@ echo "SimIM Drop Path Rate: ${simim_drop_path_rate}"
 
 mkdir -p ${EXPERIMENT_FOLDER_NAME};
 
-# Run pretraining script
-export MKL_THREADING_LAYER=GNU
-CUDA_VISIBLE_DEVICES=2 python source/pretraining.py \
+#Run pretraining script
+CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit.py \
     --paradigm ${paradigm} \
     --labels_percentage ${labels_percentage} \
     --images_dir ${images_dir} \
@@ -170,7 +192,7 @@ CUDA_VISIBLE_DEVICES=2 python source/pretraining.py \
     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
 # Run finetuning script
-CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate.py \
+CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
     --paradigm ${paradigm} \
     --images_dir ${images_dir} \
     --tabular_dir ${tabular_dir} \

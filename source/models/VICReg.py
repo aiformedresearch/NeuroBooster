@@ -1,6 +1,7 @@
 import torch
 import models.backbones.resnet as resnet
 from torch import nn
+from models import MAE_pretrain_model_no_masking_no_decoder
 
 # the following code is from VICReg implementation https://github.com/facebookresearch/vicreg
 
@@ -27,6 +28,25 @@ class init_vicreg(nn.Module):
     def forward(self, x, y):
         z_x = self.projector(self.encoder(x))
         z_y = self.projector(self.encoder(y))
+
+        return z_x, z_y
+
+class init_vicreg_deit(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+
+        ####################### MODEL and optimization
+        self.model = MAE_finetune_model.__dict__[args.mae_model](
+            num_classes=args.num_classes,
+            global_pool=False,
+        )
+
+        num_nodes_embedding = self.model.head.in_features
+        self.model.head = Projector(args, num_nodes_embedding)
+        
+    def forward(self, x, y):
+        z_x = self.model(x)
+        z_y = self.model(y)
 
         return z_x, z_y
 

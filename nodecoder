@@ -1,0 +1,53 @@
+nohup: ignoring input
+Experiment folder name: ../EXPERIMENT_DEBUG_EXAMPLE_AGE_2025_05_20_1_mae_corrected_deit_super_nomasknodec/
+Paradigm: supervised
+Backbone: beit_small
+Images directory: /Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz
+Tabular directory: /Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv
+Labels percentage: 100
+Resize shape: 224
+Dataset name: AGE
+Train classes percentage values: None
+Number of classes: 2
+Balanced validation set: True
+Normalization: standardization
+Cross validation folds: 1
+Seed: 0
+Num workers: 4
+Device: cuda:0
+Pretrain epochs: 300
+Pretrain min epochs: 200
+Pretrain patience: 50
+Pretrain batch size: 256
+Pretrain optim: LARS
+Pretrain base LR: 0.05
+Pretrain weight decay: 1e-6
+Pretrain weighted loss: True
+Finetune epochs: 7000
+Finetune min epochs: 5000
+Finetune patience: 50
+Finetune batch size: 512
+Finetune val batch size: 512
+Finetune head LR: 0.001
+Finetune weight decay: 1e-6
+Finetune weighted loss: 1
+Finetune pretrained path: exp
+Finetune learning rate backbone: 0.0
+Finetune freeze backbone: 1
+Augmentation rate: 0.9
+Projector: 1024-1024
+VICReg Sim Coefficient: 25.0
+VICReg Std Coefficient: 25.0
+VICReg Cov Coefficient: 1.0
+SimIM Bottleneck: 1
+SimIM Depth: 12
+SimIM MLP Ratio: 4
+SimIM Num Heads: 6
+SimIM Embedding Dimension: 384
+SimIM Encoder Stride: 16
+SimIM Input Channels: 3
+SimIM Use Batch Normalization: True
+SimIM Patch Size: 16
+SimIM Mask Patch Size: 32
+SimIM Mask Ratio: 0.5
+SimIM Drop Path Rate: 0.1

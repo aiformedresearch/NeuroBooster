@@ -20,7 +20,7 @@ from models.backbones import resnet
 from models.backbones.beit_vision_transformer import beit_small 
 from models.SimMIM import load_pretrained_simim
 
-from models import MAE_finetune_model
+from models.backbones import deit_vision_transformer
 from models.MAE_pretrain_model import interpolate_pos_embed
 
 
@@ -255,7 +255,7 @@ def main_worker(gpu, args):
             # Adapted from https://github.com/facebookresearch/mae
             # Licensed under CC BY-NC 4.0
 
-            model = MAE_finetune_model.__dict__[args.mae_model](
+            model = deit_vision_transformer.__dict__[args.mae_model](
                 num_classes=args.num_classes,
                 global_pool=False,
             )
@@ -335,13 +335,14 @@ def main_worker(gpu, args):
             for param_tensor in head.state_dict():
                 print('head', param_tensor, "\t", head.state_dict()[param_tensor].size(), file = model_info_file)
 
-            # Print optimizer's state_dict
-            for var_name in optimizer.state_dict():
-                print('optimizer', var_name, "\t", optimizer.state_dict()[var_name], file = model_info_file)
-
         
         optimizer = torch.optim.SGD(param_groups, 0, momentum=0.9, weight_decay=args.weight_decay) #, nesterov=True)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
+
+        # Print optimizer's state_dict
+        for var_name in optimizer.state_dict():
+            print('optimizer', var_name, "\t", optimizer.state_dict()[var_name], file = model_info_file)
+
         ######################### TRAIN AND EVALUATE:
         g = torch.Generator()
         g.manual_seed(args.seed)

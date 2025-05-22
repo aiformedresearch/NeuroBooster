@@ -207,7 +207,12 @@ def main(args):
 
         ########## LOSS FUNCTION
         if args.paradigm == 'supervised' or args.paradigm == 'medbooster':
-            model = init_medbooster(args).cuda(gpu)
+
+            if args.backbone in 'deit':
+                model = init_medbooster_deit(args).cuda(gpu)
+            else:
+                model = init_medbooster(args).cuda(gpu)
+
             model.head = nn.Sequential(model.head)
             
             if args.task == 'regression':
@@ -230,7 +235,10 @@ def main(args):
                 criterion = nn.BCEWithLogitsLoss(pos_weight = pos_weight).cuda(gpu) # sigmoid + BCELoss = BCEWithLogitsLoss
     
         elif args.paradigm =='vicreg':
-            model = init_vicreg(args).cuda(gpu)
+            if args.backbone in 'deit':
+                model = init_vicreg_deit(args).cuda(gpu)
+            else:
+                model = init_vicreg(args).cuda(gpu)
             criterion = vicreg_loss(args).cuda(gpu)
 
         elif args.paradigm == 'mae':
@@ -240,7 +248,7 @@ def main(args):
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
 
-        if args.paradigm == 'mae':
+        if args.backbone == 'deit':
             # ====== BEGIN MAE-DERIVED CODE ======
             # Adapted from https://github.com/facebookresearch/mae
             # Licensed under CC BY-NC 4.0
@@ -279,7 +287,7 @@ def main(args):
         )
 
         # optimizer
-        if not(args.paradigm in ['simim','mae']):
+        if not(args.backbone in ['beit','deit']):
             if args.optim == 'SGD':
                 print('optimizer: SGD')
                 optimizer = torch.optim.SGD(param_groups, lr=0)
@@ -302,7 +310,7 @@ def main(args):
                 weight_decay=args.weight_decay,
                 )
 
-        elif args.paradigm == 'simim':
+        elif args.backbone == 'beit':
             from utils.simim_optim import build_scheduler,build_optimizer 
             optimizer = build_optimizer(args, model, is_pretrain=True)
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
@@ -340,11 +348,11 @@ def main(args):
 
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
-            if args.paradigm == 'mae':
+            if args.backbone == 'deit':
                 accum_iter = 1 # check the actual usage of the gradient accumulation from mae repo, we implement only the default with accum_iter=1
                 optimizer.zero_grad()
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
-                if args.paradigm == 'mae':
+                if args.backbone == 'deit':
                     img_x = img_x.to(torch.float32)  
                     img_y = img_y.to(torch.float32) 
                     # ====== BEGIN MAE-DERIVED CODE ======
@@ -358,7 +366,16 @@ def main(args):
                     #samples = samples.to(device, non_blocking=True)
 
                     with torch.cuda.amp.autocast():
-                        loss, _, _ = model(img_x, mask_ratio=args.mae_mask_ratio)
+                        if args.paradigm == 'mae':
+                            loss, _, _ = model(img_x, mask_ratio=args.mae_mask_ratio)
+
+                        elif args.paradigm == 'supervised':
+                            output = model.forward(img_x.cuda(gpu,non_blocking=True))
+                            tabular = tabular.to(torch.float16)
+                            if len(tabular.shape)==1:
+                                tabular = tabular.reshape(-1,1)
+                            loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
+
 
                     loss_value = loss.item()
 
@@ -373,12 +390,12 @@ def main(args):
                     step_metrics = {'loss':loss.item()}
                     # ====== END MAE-DERIVED CODE ======
 
-                if not(args.paradigm in ['simim','mae']):
+                if not(args.backbone in ['deit','beit']):
                     lr = adjust_learning_rate(args, optimizer, loader, step)
                 else:
                     lr = 5e-4
 
-                if not(args.paradigm == 'mae'):
+                if not(args.backbone == 'deit'):
                     optimizer.zero_grad()
 
                 if args.paradigm == 'simim':
@@ -397,11 +414,12 @@ def main(args):
                 elif (args.paradigm == 'medbooster') or  (args.paradigm == 'supervised') :
                         
                     with torch.cuda.amp.autocast():  # automaitc mixed precision
-                        output = model.forward(img_x.cuda(gpu,non_blocking=True))
-                        tabular = tabular.to(torch.float16)
-                        if len(tabular.shape)==1:
-                            tabular = tabular.reshape(-1,1)
-                        loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
+                        if not args.backbone == 'deit':
+                            output = model.forward(img_x.cuda(gpu,non_blocking=True))
+                            tabular = tabular.to(torch.float16)
+                            if len(tabular.shape)==1:
+                                tabular = tabular.reshape(-1,1)
+                            loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
                         with torch.no_grad():
                             if args.task == 'regression':
                                 if tabular_scaler_fold_i:
@@ -415,7 +433,7 @@ def main(args):
                                 optimizer.step()
                 
                 
-                if args.paradigm == 'mae':
+                if args.backbone == 'deit':
                     # ====== BEGIN MAE-DERIVED CODE ======
                     # Adapted from https://github.com/facebookresearch/mae
                     # Licensed under CC BY-NC 4.0
@@ -508,7 +526,7 @@ def create_dict_state(args, model, optimizer, epoch):
         optimizer=copy.deepcopy(optimizer.state_dict()),
         )           
 
-    elif args.paradigm in ['mae']:
+    elif args.backbone in ['deit']:
         state = dict(
         epoch=epoch + 1,
         model=copy.deepcopy(model.state_dict()),
