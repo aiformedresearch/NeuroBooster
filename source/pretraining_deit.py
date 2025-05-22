@@ -485,6 +485,7 @@ def main(args):
         last_state = create_dict_state(args, model, optimizer, epoch)
         torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
         torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
+        (args.exp_dir / "pretraining_done.txt").touch()
 
 
 def create_dict_state(args, model, optimizer, epoch):        

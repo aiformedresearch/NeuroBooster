@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(0 1)
+seeds=(0 1 2 3 4)
 labels_percentages=(100 1)
-paradigms=(supervised mae medbooster vicreg)
+paradigms=(mae)
 datasets=(AGE)
 backbones=(deit)
 
@@ -63,11 +63,11 @@ simim_drop_path_rate=${simim_drop_path_rate:-0.1}
 
 # Iterate over combinations
 for seed in "${seeds[@]}"; do
-  for labels_percentage in "${labels_percentages[@]}"; do
-    for paradigm in "${paradigms[@]}"; do
-      for dataset_name in "${datasets[@]}"; do
-        for backbone in "${backbones[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../EXPERIMENTS_2025_05_22_1/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+  for paradigm in "${paradigms[@]}"; do
+    for dataset_name in "${datasets[@]}"; do
+      for backbone in "${backbones[@]}"; do
+        for labels_percentage in "${labels_percentages[@]}"; do
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_2025_05_22_1/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           mkdir -p ${EXPERIMENT_FOLDER_NAME}
 
           echo "Running: SEED=$seed | PARADIGM=$paradigm | DATASET=$dataset_name | PERC=$labels_percentage | BACKBONE=$backbone"

@@ -250,7 +250,7 @@ def main_worker(gpu, args):
         val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
 
         ####################### MODEL and optimization
-        if 'mae' in args.pre_training_paradigm:
+        if 'deit' in args.backbone:
             # ====== BEGIN MAE-DERIVED CODE ======
             # Adapted from https://github.com/facebookresearch/mae
             # Licensed under CC BY-NC 4.0
@@ -295,6 +295,7 @@ def main_worker(gpu, args):
             state_dict = torch.load(args.pretrained_path, map_location='cpu')   
             msg = backbone.load_state_dict(state_dict["backbone"], strict=True)
             print(f'loaded pretrained with msg: {msg}')
+
         else:
             print(f'{args.backbone} is not among the possible backbones')
             break
@@ -310,7 +311,7 @@ def main_worker(gpu, args):
 
         param_groups = [dict(params=head.parameters(), lr=args.lr_head)]
 
-        if args.pre_training_paradigm == 'mae':
+        if 'deit' in args.backbone:
             model.head = head 
             print("Model = %s" % str(model))
             n_parameters_model = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -370,7 +371,7 @@ def main_worker(gpu, args):
         df_val_metrics = {}
         outputs_and_targets_validation_path = args.exp_dir / 'valdiation_outputs_and_targets'
         outputs_and_targets_validation_path.mkdir(parents=True, exist_ok=True)
-        if args.pre_training_paradigm == 'mae':
+        if 'deit' in args.backbone:
             model.to(args.gpu)
         else:
             backbone.to(args.gpu)
@@ -381,7 +382,7 @@ def main_worker(gpu, args):
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
 
-            if args.pre_training_paradigm == 'mae':
+            if 'deit' in args.backbone:
                 model.train(True)
                 accum_iter = 1
                 optimizer.zero_grad()
@@ -397,7 +398,7 @@ def main_worker(gpu, args):
                 optimizer.zero_grad()
 
                 with torch.cuda.amp.autocast():  # automaitc mixed precision
-                    if args.pre_training_paradigm == 'mae':
+                    if 'deit' in args.backbone:
                         output = model(img_x.cuda(gpu, non_blocking=True))
 
                     elif 'beit' in args.backbone:
@@ -455,7 +456,7 @@ def main_worker(gpu, args):
                             train_all_metrics_dict[name_loss_i] += loss_i/len(train_loader)
                    
             ########### VALIDATION:
-            if args.pre_training_paradigm == 'mae':
+            if 'deit' in args.backbone:
                 model.eval()
             else:
                 backbone.eval()
@@ -466,11 +467,9 @@ def main_worker(gpu, args):
                 starting_epoch = True
                 for step, (img_x, img_y, tabular, original_img, samples_id)in enumerate(val_loader, start=epoch * len(val_loader)):
                     with torch.cuda.amp.autocast():  # automaitc mixed precision
-                        if args.pre_training_paradigm == 'mae':
-                            # img_x = img_x.to(torch.float32)  
-                            # img_y = img_y.to(torch.float32) 
+                        if 'deit' in args.backbone: 
                             output = model(img_x.cuda(gpu, non_blocking=True))
-                        elif ('deit' in args.backbone) or ('beit' in args.backbone):
+                        elif ('beit' in args.backbone):
                             output = backbone.forward_blocks(img_x.cuda(gpu, non_blocking=True))
                             output = head(output)
                         elif 'resnet' in args.backbone:
