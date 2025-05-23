@@ -292,11 +292,11 @@ def main(args):
             drop_last=drop_last,
         )
 
-        # optimizer
-        if ('beit' in args.backbone) or ('deit' in args.backbone):
-            lr = 0.05
+        # # optimizer
+        # if ('beit' in args.backbone) or ('deit' in args.backbone):
+        #     lr = 5e-4
 
-        if 'resnet' in args.backbone:
+        if True:
             if args.optim == 'SGD':
                 print('optimizer: SGD')
                 optimizer = torch.optim.SGD(param_groups, lr=0)
@@ -319,7 +319,7 @@ def main(args):
                 weight_decay=args.weight_decay,
                 )
 
-        elif ('beit' in args.backbone) or ('deit' in args.backbone):
+        if False:
             from utils.simim_optim import build_scheduler,build_optimizer 
             optimizer = build_optimizer(args, model, is_pretrain=True)
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
@@ -404,7 +404,7 @@ def main(args):
                             else:
                                 step_metrics = {'loss':loss.item()}
                     
-                if not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
+                if True: #not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
                     lr = adjust_learning_rate(args, optimizer, loader, step)
 
                 # if 'deit' in args.backbone:
@@ -432,9 +432,10 @@ def main(args):
                 
                 # else:
                 scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
-                if ('deit' in args.backbone) or ('beit' in args.backbone):
-                    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
-                    lr_scheduler.step_update(epoch * num_steps + step)
+                # if ('deit' in args.backbone) or ('beit' in args.backbone):
+                #     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                #     if False:
+                #         lr_scheduler.step_update(epoch * num_steps + step)
                 scaler.step(optimizer)
                 scaler.update()
 

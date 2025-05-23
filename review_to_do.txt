@@ -1,3 +1,21 @@
+ablation study: 
+main possible reason:
+looking at the change that VICReg had by changing the optimizer and lr to LARS, it worked much better. However It also needed more 
+epochs for the pretraining. I do the same with the supervised. 
+I am launching two ablation studies: one with LARS and one with SIMIM optimization, same amount of pretraining epochs and finetuning epochs so that we can also better compare the convergence times and isolate the causes
+
+if it is not working maybe it is good to use the same simim optim for everyone but increasing the number of epochs instead of using LARS? but in that case vicreg is shitty
+
+It might need even more patience due to the higher instability of the transformer?
+
+the check about when to perform pretraining or not is not working as expected
+
+
+- optimizer
+- longer finetuning
+- is the backbone frozen? why does it take the same amount of time??
+
+
 Reasoning:
 
 perchè anche MAE? è più adatto a small dataset, per via del transformer DeiT
@@ -30,7 +48,6 @@ potremmo applicare le reti preallenate per un problema di object detection/segme
 check if longer finetuning makes simim better for age prediction
 
 check if MAE is better with same times
-
 
 
 1) add times computation
@@ -105,3 +122,41 @@ results = model.predict_batch(
     mode="patch",
     on_gpu=True
 )
+
+
+to check all the bash scripts:
+
+pgrep -af bash | while read pid cmd; do
+    pgrep -P $pid python > /dev/null && echo "Bash PID $pid runs Python: $cmd"
+done
+
+to kill the python children based on the word 'vicreg':
+
+ps -ef | grep vicreg | grep bash | awk '{print $2}' | while read pid; do
+  pgid=$(ps -o pgid= -p "$pid" | tr -d ' ')
+  echo "Killing process group $pgid"
+  kill -- -$pgid
+done
+
+
+LARS:
+
+vicreg pretraining: 26591MiB (gpu 0) PID: 3415344
+
+supervised pretraining: 14209MiB (gpu 1) PID: 1022925
+
+mae pretraining: 10265MiB (gpu 2) PID: 1937941 
+
+simim pretraining:  15083MiB  (gpu 3) PID: 2793371
+
+medbooster 14200MiB (gpu 0) PID: 2276763
+
+simMIM optim:
+
+
+
+
+space needed in worst case:
+5.6G    /Ironman/scratch/Andrea/med-booster/EXPERIMENTS_MRI_augm_21_11/EXPS/seed0  *30 seeds -> 160 GB
+
+I FORGOT ABOUT IT: WE PERFORMED THE PRE-TRAINING ONLY WITH AGE PREDICTION, BECAUSE WE HVE THE FEATURES ONLY FOR THE AGE PREDICTION DATASET!

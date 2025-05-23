@@ -547,6 +547,8 @@ def main_worker(gpu, args):
                 if early_stopping.early_stop:
                     print(f"EARLY STOPPAGE, epoch {epoch}")
                     break
+            
+        (args.exp_dir / "finetuning_done.txt").touch()
 
 
 # FINE-TUNING DATA AUGMENTATION:
