@@ -294,7 +294,7 @@ def main(args):
 
         # optimizer
         if ('beit' in args.backbone) or ('deit' in args.backbone):
-            lr = 5e-4
+            lr = 0.05
 
         if 'resnet' in args.backbone:
             if args.optim == 'SGD':

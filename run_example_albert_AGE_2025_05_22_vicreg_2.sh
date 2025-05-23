@@ -3,7 +3,7 @@
 # Define arrays for values to sweep over
 seeds=(0 1 2 3 4)
 labels_percentages=(100 1)
-paradigms=(supervised)
+paradigms=(vicreg)
 datasets=(AGE)
 backbones=(deit)
 
@@ -67,12 +67,12 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_2025_05_22_1/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_2025_05_22_1_debugging_vicreg_2/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           mkdir -p ${EXPERIMENT_FOLDER_NAME}
 
           echo "Running: SEED=$seed | PARADIGM=$paradigm | DATASET=$dataset_name | PERC=$labels_percentage | BACKBONE=$backbone"
 
-          CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit.py \
+          CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_vicreg_2.py \
             --paradigm ${paradigm} \
             --labels_percentage ${labels_percentage} \
             --images_dir ${images_dir} \
@@ -113,7 +113,7 @@ for seed in "${seeds[@]}"; do
             --weighted_loss ${pretrain_weighted_loss} \
             > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
-          CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
+          CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate_deit.py \
             --paradigm ${paradigm} \
             --images_dir ${images_dir} \
             --tabular_dir ${tabular_dir} \

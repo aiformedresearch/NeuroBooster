@@ -3,7 +3,7 @@
 # Define arrays for values to sweep over
 seeds=(0 1 2 3 4)
 labels_percentages=(100 1)
-paradigms=(medbooster)
+paradigms=(vicreg)
 datasets=(AGE)
 backbones=(deit)
 
@@ -72,7 +72,7 @@ for seed in "${seeds[@]}"; do
 
           echo "Running: SEED=$seed | PARADIGM=$paradigm | DATASET=$dataset_name | PERC=$labels_percentage | BACKBONE=$backbone"
 
-          CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit.py \
+          CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_vicreg.py \
             --paradigm ${paradigm} \
             --labels_percentage ${labels_percentage} \
             --images_dir ${images_dir} \
@@ -113,7 +113,7 @@ for seed in "${seeds[@]}"; do
             --weighted_loss ${pretrain_weighted_loss} \
             > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
 
-          CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
+          CUDA_VISIBLE_DEVICES=1 python source/fine_tune_evaluate_deit.py \
             --paradigm ${paradigm} \
             --images_dir ${images_dir} \
             --tabular_dir ${tabular_dir} \
