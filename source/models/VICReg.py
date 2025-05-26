@@ -1,7 +1,7 @@
 import torch
 import models.backbones.resnet as resnet
 from torch import nn
-from models import MAE_pretrain_model_no_masking_no_decoder
+from models.backbones import deit_vision_transformer, deit_vision_transformer_no_masking_no_decoder
 
 # the following code is from VICReg implementation https://github.com/facebookresearch/vicreg
 
@@ -36,7 +36,7 @@ class init_vicreg_deit(nn.Module):
         super().__init__()
 
         ####################### MODEL and optimization
-        self.model = MAE_pretrain_model_no_masking_no_decoder.__dict__[args.mae_model](
+        self.model = deit_vision_transformer_no_masking_no_decoder.__dict__[args.mae_model](
             num_classes=args.num_classes,
             global_pool=False,
         )

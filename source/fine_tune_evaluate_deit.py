@@ -23,6 +23,10 @@ from models.SimMIM import load_pretrained_simim
 from models.backbones import deit_vision_transformer
 from models.MAE_pretrain_model import interpolate_pos_embed
 
+# models
+from models.VICReg import init_vicreg, init_vicreg_deit, Projector
+from models.MedBooster import init_medbooster, init_medbooster_deit
+
 
 def str2bool(v):
     if v.lower() in ('true', '1'):
@@ -75,6 +79,7 @@ def get_arguments():
         metavar="DIR",
         help="path to checkpoint directory",
     )
+    parser.add_argument("--projector", default="1024-1024", help='Projector layers number of nodes')
 
     # Optimization
     parser.add_argument(
@@ -250,24 +255,60 @@ def main_worker(gpu, args):
         val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
 
         ####################### MODEL and optimization
+        if args.paradigm in ['medbooster', 'supervised']:
+            projector_dims = args.projector.split("-")
+            args.projector = f'{projector_dims[0]}-{args.num_classes}'
+
         if 'deit' in args.backbone:
             # ====== BEGIN MAE-DERIVED CODE ======
-            # Adapted from https://github.com/facebookresearch/mae
             # Licensed under CC BY-NC 4.0
+            if args.paradigm == 'mae':
+                # Use the default deit_vision_transformer initialization
+                model = deit_vision_transformer.__dict__[args.mae_model](
+                    num_classes=args.num_classes,
+                    global_pool=False,
+                )
+                num_nodes_embedding = model.head.in_features
+                print('num_nodes_embedding', num_nodes_embedding)
 
-            model = deit_vision_transformer.__dict__[args.mae_model](
-                num_classes=args.num_classes,
-                global_pool=False,
-            )
-            num_nodes_embedding = model.head.in_features #192 if tiny
-            print('num_nodes_embedding', num_nodes_embedding)
+            else:
+                # Use init_medbooster_deit initialization
+                print("Paradigm is NOT 'mae': using init_medbooster_deit for fine-tuning")
+
+                model = deit_vision_transformer.__dict__[args.mae_model](
+                        num_classes=args.num_classes,
+                        global_pool=False,
+                    )
+
+                num_nodes_embedding = model.head.in_features
+
+            # --- PRINT PARAM STATS BEFORE LOADING ---
+            print("== Parameters before loading pretrained weights ==")
+            for name, param in model.named_parameters():
+                print(f"{name}: mean={param.data.mean():.6f}, std={param.data.std():.6f}")
+
+            # Load pretrained checkpoint
+
             checkpoint = torch.load(args.pretrained_path, map_location='cpu')
-            print("Load pre-trained checkpoint from: %s" % args.pretrained_path)
             checkpoint_model = checkpoint['model']
+
+            # Remove 'model.' prefix
+            if args.paradigm != 'mae':
+                new_checkpoint_model = {}
+                for k, v in checkpoint_model.items():
+                    new_key = k.replace('model.', '') if k.startswith('model.') else k
+                    new_checkpoint_model[new_key] = v
+                checkpoint_model = new_checkpoint_model
+
+            # Remove head weights if shape mismatch
             state_dict = model.state_dict()
-            for k in ['head.weight', 'head.bias']:
+
+            # Note: head keys are different if using init_medbooster_deit
+            head_keys = ['head.weight', 'head.bias']
+
+            for k in head_keys:
                 if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                    print(f"Removing key {k} from pretrained checkpoint")
+                    print(f"Removing key {k} from pretrained checkpoint due to shape mismatch")
                     del checkpoint_model[k]
 
             # interpolate position embedding
@@ -275,11 +316,17 @@ def main_worker(gpu, args):
 
             # load pre-trained model
             msg = model.load_state_dict(checkpoint_model, strict=False)
-            print(f'loaded pretrained with msg:', msg)
+            print(f'Loaded pretrained with msg: {msg}')
 
-            for _, p in model.named_parameters():
+            # --- PRINT PARAM STATS AFTER LOADING ---
+            print("== Parameters after loading pretrained weights ==")
+            for name, param in model.named_parameters():
+                print(f"{name}: mean={param.data.mean():.6f}, std={param.data.std():.6f}")
+
+            # Freeze backbone
+            for name, p in model.named_parameters():
                 p.requires_grad = False
-            for _, p in model.head.named_parameters():
+            for name, p in model.head.named_parameters():
                 p.requires_grad = True
 
             # ====== END MAE-DERIVED CODE ======
