@@ -141,15 +141,15 @@ done
 
 LARS:
 
-vicreg pretraining: 26591MiB (gpu 0) PID: 3415344
+vicreg pretraining: 26591MiB (gpu 0) 
 
-supervised pretraining: 14209MiB (gpu 1) PID: 1022925
+supervised pretraining: 14209MiB (gpu 1) 
 
-mae pretraining: 10265MiB (gpu 2) PID: 1937941 
+mae pretraining: 10265MiB (gpu 2)  
 
-simim pretraining:  15083MiB  (gpu 3) PID: 2793371
+simim pretraining:  15083MiB  (gpu 3) 
 
-medbooster 14200MiB (gpu 0) PID: 2276763
+medbooster 14200MiB (gpu 0) 
 
 simMIM optim:
 
@@ -216,4 +216,18 @@ per vicreg supervised medbooster and simim!!!! infatti la finetuning loss è sem
 
 potrebbe anche essere il motivo per cui simim non da li stessi risultati di prima oppure il motivo per cui prima i risultati
 erano cosi brutti, prova a inizializzare random senza caricamento e vedi differenze
+
+i risultati sono diversi anche perchè ho cambiato qualcosina nell'ottimizzazione di simim?
+
+
+sembra tornare tutto: con pretraining LARS simim fa cagare -> giustifica allenamento con la sua ottimizzazione
+vediamo come va con mae, ma a prescindere i risultati di medbooster e supervised sembrano MIGLIORI
+possiamo fare un finetuning molto piu veloce
+anche mae sembra migliore con la ottimizzazione di simim
+
+ablation study:
+train all paradigms with deit ViT
+MAE is needed to show that is it not the ViT or the optimization the problem, but it is the task, that maybe needs more data 
+compare using the exact same optimization of before for resnet so that we compare the results in terms of only different backbone
+fine-tuning as it was
 

@@ -199,6 +199,11 @@ def main(args):
 
         ################## MODEL ARCHITECTURE:
         print('INITIALIZING MODEL')
+        if args.paradigm in ['medbooster', 'supervised']:
+            projector_dims = args.projector.split("-")
+            args.projector = f'{projector_dims[0]}-{args.num_classes}'
+        
+        print(f'PROJECTOR DIMENSIONS: {args.projector}')
 
         # if ('beit' in args.backbone) and not(args.paradigm == 'simim'):
         #     raise Exception('the transformer backbone is supposed to be used with simim paradigm')

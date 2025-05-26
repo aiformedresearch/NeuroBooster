@@ -79,7 +79,6 @@ def get_arguments():
         metavar="DIR",
         help="path to checkpoint directory",
     )
-    parser.add_argument("--projector", default="1024-1024", help='Projector layers number of nodes')
 
     # Optimization
     parser.add_argument(
@@ -174,6 +173,9 @@ def main_worker(gpu, args):
     args.exp_dir_original = args.exp_dir
     args.num_classes = 1
     args.pre_training_paradigm = args.paradigm
+    if (args.backbone != 'beit_small') and (args.pre_training_paradigm == 'simim'):
+        print(f'{args.backbone} is being changed to "beit_small" which is the only tested architecture for simim in this repo')
+        args.backbone='beit_small'
     args.paradigm = 'supervised' # all the pre-trained models are fine-tuned with a supervised approa
     sigmoid = nn.Sigmoid()
     args.workflow_step = 'fine_tune_evaluate'
@@ -255,14 +257,11 @@ def main_worker(gpu, args):
         val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
 
         ####################### MODEL and optimization
-        if args.paradigm in ['medbooster', 'supervised']:
-            projector_dims = args.projector.split("-")
-            args.projector = f'{projector_dims[0]}-{args.num_classes}'
 
         if 'deit' in args.backbone:
             # ====== BEGIN MAE-DERIVED CODE ======
             # Licensed under CC BY-NC 4.0
-            if args.paradigm == 'mae':
+            if args.pre_training_paradigm == 'mae':
                 # Use the default deit_vision_transformer initialization
                 model = deit_vision_transformer.__dict__[args.mae_model](
                     num_classes=args.num_classes,
@@ -293,7 +292,7 @@ def main_worker(gpu, args):
             checkpoint_model = checkpoint['model']
 
             # Remove 'model.' prefix
-            if args.paradigm != 'mae':
+            if args.pre_training_paradigm != 'mae':
                 new_checkpoint_model = {}
                 for k, v in checkpoint_model.items():
                     new_key = k.replace('model.', '') if k.startswith('model.') else k
@@ -330,12 +329,31 @@ def main_worker(gpu, args):
                 p.requires_grad = True
 
             # ====== END MAE-DERIVED CODE ======
+
         elif 'beit' in args.backbone:
             backbone = beit_small(args)
-            num_nodes_embedding = args.simim_emb_dim #192 if 'tiny' in args.backbone else 384 if 'small' in args.backbone else 768 if 'base' in args.backbone else 1024 if 'large' in args.backbone else 1280
-            msg=load_pretrained_simim(args, backbone)
+            num_nodes_embedding = args.simim_emb_dim  # 192/384/768/1024/1280 based on backbone
+
+            # --- Print param stats before loading ---
+            print("== Parameters BEFORE loading pretrained weights ==")
+            for name, param in backbone.named_parameters():
+                print(f"{name}: mean={param.data.mean():.6f}, std={param.data.std():.6f}")
+                if name.startswith("blocks.0") or name.startswith("patch_embed.proj"):  # print a few
+                    print(f"Example param ({name}):", param.view(-1)[:5])
+
+            # Load pretrained weights
+            msg = load_pretrained_simim(args, backbone)
             print(f'loaded pretrained with msg: {msg}')
+
+            # --- Print param stats after loading ---
+            print("== Parameters AFTER loading pretrained weights ==")
+            for name, param in backbone.named_parameters():
+                print(f"{name}: mean={param.data.mean():.6f}, std={param.data.std():.6f}")
+                if name.startswith("blocks.0") or name.startswith("patch_embed.proj"):  # print a few
+                    print(f"Example param ({name}):", param.view(-1)[:5])
+
             backbone.head = None
+
 
         elif 'resnet' in args.backbone: 
             backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
@@ -595,7 +613,7 @@ def main_worker(gpu, args):
                     print(f"EARLY STOPPAGE, epoch {epoch}")
                     break
             
-        (args.exp_dir / "finetuning_done.txt").touch()
+        (args.exp_dir / "finetuning_ablation_done.txt").touch()
 
 
 # FINE-TUNING DATA AUGMENTATION:
