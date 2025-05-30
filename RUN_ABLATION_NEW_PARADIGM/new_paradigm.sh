@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(0 1 2 3 4)
+seeds=(0)
 labels_percentages=(100 1)
 paradigms=(vicreg)
 datasets=(AGE)
@@ -67,7 +67,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_05_26_ADAMW_short/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/pretraining_deit_LARS_new_paradigm/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -77,7 +77,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-            CUDA_VISIBLE_DEVICES=3 python source/pretraining_deit_SIMIMOPT.py \
+            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS_new_paradigm.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \

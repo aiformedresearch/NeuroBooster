@@ -1,0 +1,27 @@
+(med_booster) espis@albert:/$ python /Ironman/scratch/Andrea/med-booster/MAIN/check_finetuning_done.py
+
+Paradigm: mae (5 found)
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed0/AGE/mae/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed1/AGE/mae/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed2/AGE/mae/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed3/AGE/mae/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed4/AGE/mae/labels_percentage_100/fold_0/pretraining_done.txt
+
+Paradigm: supervised (10 found)
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed0/AGE/supervised/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed0/AGE/supervised/labels_percentage_1/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed1/AGE/supervised/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed1/AGE/supervised/labels_percentage_1/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed2/AGE/supervised/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed2/AGE/supervised/labels_percentage_1/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed3/AGE/supervised/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed3/AGE/supervised/labels_percentage_1/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed4/AGE/supervised/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed4/AGE/supervised/labels_percentage_1/fold_0/pretraining_done.txt
+
+Paradigm: medbooster (5 found)
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed0/AGE/medbooster/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed1/AGE/medbooster/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed2/AGE/medbooster/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed3/AGE/medbooster/labels_percentage_100/fold_0/pretraining_done.txt
+/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short/seed4/AGE/medbooster/labels_percentage_100/fold_0/pretraining_done.txt

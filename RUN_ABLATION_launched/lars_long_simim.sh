@@ -77,7 +77,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS.py \
+            CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \

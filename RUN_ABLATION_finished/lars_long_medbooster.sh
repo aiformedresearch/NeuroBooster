@@ -3,7 +3,7 @@
 # Define arrays for values to sweep over
 seeds=(0 1 2 3 4)
 labels_percentages=(100 1)
-paradigms=(vicreg)
+paradigms=(medbooster)
 datasets=(AGE)
 backbones=(deit)
 
@@ -77,7 +77,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-            CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit_LARS.py \
+            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \

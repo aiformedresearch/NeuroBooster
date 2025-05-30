@@ -153,7 +153,9 @@ medbooster 14200MiB (gpu 0)
 
 simMIM optim:
 
+finetuning :
 
+mae: 3003MiB
 
 
 space needed in worst case:
