@@ -13,25 +13,26 @@ if dataset_name == 'ADNI':
     metrics = ['AUC', 'PR_AUC']
     bw_adjust = 0.7
     cut = 3
-    source_folder_path_all_experiments = Path('/home/andreaespis/diciotti/andrea/med-booster/EXPERIMENTS_MRI_augm_21_11') / 'results_ADNI'
+    source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short') / 'results_ADNI'
 else:
-    metrics = ['MAE', 'RMSE']
+    metrics = ['MAE']#, 'RMSE']
     bw_adjust = 0.9
     cut = 3 
-    source_folder_path_all_experiments = Path('/home/andreaespis/diciotti/andrea/med-booster/EXPERIMENTS_MRI_augm_21_11') / 'results_AGE'
+    source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short') / 'results_AGE'
 # Define the color mapping for each paradigm
 paradigm_colors = {
     'SL': 'purple',
     'MB': 'lightblue',
     'VICReg': 'red',
-    'SimMIM': 'orange'
+    'SimMIM': 'orange',
+    'MAE': 'green'
 }
 
 matplotlib.rcParams.update({'font.size': 36})
-seeds = range(30)
-paradigms = ['supervised', 'neurobooster', 'vicreg', 'simim']
+seeds = range(5)
+paradigms = ['supervised', 'medbooster', 'vicreg', 'simim', 'mae']
 folds = range(1)
-labels_percentage_list = [100, 10, 1]
+labels_percentage_list = [100, 1]
 
 destination_folder_path = source_folder_path_all_experiments
 
@@ -42,7 +43,7 @@ fig, axs = plt.subplots(len(labels_percentage_list), len(metrics), figsize=(22, 
 for row_idx, labels_percentage in enumerate(labels_percentage_list):
     for col_idx, metric in enumerate(metrics):
         df = pd.read_csv(source_folder_path_all_experiments / f'results_collected_{metric}_seeds_{seeds}_folds_{folds}_labels_percentage_{labels_percentage}_paradigms_{paradigms}.csv')
-        paradigms_names = {'supervised': 'SL', 'neurobooster': 'MB', 'vicreg': 'VICReg', 'simim': 'SimMIM', 'baseline': 'baseline'}
+        paradigms_names = {'supervised': 'SL', 'medbooster': 'MB', 'vicreg': 'VICReg', 'simim': 'SimMIM', 'baseline': 'baseline', 'mae':'MAE'}
         df = df.drop('Unnamed: 0', axis=1, errors='ignore')
         df.columns = [paradigms_names[col] for col in df.columns]
         df_results = df
@@ -90,7 +91,7 @@ for row_idx, labels_percentage in enumerate(labels_percentage_list):
         print(df_results.iloc[:, 1:].mean(), file=results_mean_file)
 
 # Add titles for each row
-row_titles = ['Labels percentage 100%', 'Labels percentage 10%', 'Labels percentage 1%']
+row_titles = ['Labels percentage 100%', 'Labels percentage 1%']
 for row_idx, row_title in enumerate(row_titles):
     fig.text(0.5, 0.92 - row_idx * 0.305, row_title, ha='center', va='bottom', fontsize=36)
 

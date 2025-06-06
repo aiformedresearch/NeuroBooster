@@ -76,47 +76,7 @@ for seed in "${seeds[@]}"; do
           echo "Running: SEED=$seed | PARADIGM=$paradigm | DATASET=$dataset_name | PERC=$labels_percentage | BACKBONE=$backbone"
 
           # if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
-
-          #   CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS.py \
-          #     --paradigm ${paradigm} \
-          #     --labels_percentage ${labels_percentage} \
-          #     --images_dir ${images_dir} \
-          #     --tabular_dir ${tabular_dir} \
-          #     --dataset_name ${dataset_name} \
-          #     --seed ${seed} \
-          #     --exp-dir ${EXPERIMENT_FOLDER_NAME} \
-          #     --backbone ${backbone} \
-          #     --projector ${projector} \
-          #     --batch-size ${pretrain_batch_size} \
-          #     --cross_val_folds ${cross_val_folds} \
-          #     --device ${device} \
-          #     --base_lr ${pretrain_base_lr} \
-          #     --optim ${pretrain_optim} \
-          #     --min_epochs ${pretrain_min_epochs} \
-          #     --patience ${pretrain_patience} \
-          #     --num_workers ${num_workers} \
-          #     --epochs ${pretrain_epochs} \
-          #     --resize_shape ${resize_shape} \
-          #     --normalization ${normalization} \
-          #     --augmentation_rate ${augmentation_rate} \
-          #     --vicreg_sim_coeff ${vicreg_sim_coeff} \
-          #     --vicreg_std_coeff ${vicreg_std_coeff} \
-          #     --vicreg_cov_coeff ${vicreg_cov_coeff} \
-          #     --simim_bottleneck ${simim_bottleneck} \
-          #     --simim_depth ${simim_depth} \
-          #     --simim_mlp_ratio ${simim_mlp_ratio} \
-          #     --simim_num_heads ${simim_num_heads} \
-          #     --simim_emb_dim ${simim_emb_dim} \
-          #     --simim_encoder_stride ${simim_encoder_stride} \
-          #     --simim_in_chans ${simim_in_chans} \
-          #     --simim_use_bn ${simim_use_bn} \
-          #     --simim_patch_size ${simim_patch_size} \
-          #     --simim_mask_patch_size ${simim_mask_patch_size} \
-          #     --simim_mask_ratio ${simim_mask_ratio} \
-          #     --simim_drop_path_rate ${simim_drop_path_rate} \
-          #     --weight-decay ${pretrain_weight_decay} \
-          #     --weighted_loss ${pretrain_weighted_loss} \
-          #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
+          #   CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS.py [ ... your parameters ... ] > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1 &
           # else
           #   echo "⏭ Skipping training (already done or not needed)"
           # fi
@@ -162,8 +122,7 @@ for seed in "${seeds[@]}"; do
               --patience ${finetune_patience} \
               --min_epochs ${finetune_min_epochs} \
               --seed ${seed} \
-              > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1
-          
+              > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1 &
           else
             echo "⏭ Skipping finetuning (already done)"
           fi
@@ -173,3 +132,5 @@ for seed in "${seeds[@]}"; do
     done
   done
 done
+
+echo "✅ All jobs launched in background!"
