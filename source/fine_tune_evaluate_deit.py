@@ -236,7 +236,7 @@ def main_worker(gpu, args):
 
         if args.task == 'classification':
             sampled_classes = [0,1]
-            if (args.train_classes_percentage_values[sampled_classes[0]] >0 and args.train_classes_percentage_values[sampled_classes[1]]>0 and args.weighted_loss and args.paradigm == 'supervised'):
+            if (args.weighted_loss and args.paradigm == 'supervised'):
                 class_0_count = len(targets_train_fold_i[targets_train_fold_i==0])
                 class_1_count = len(targets_train_fold_i[targets_train_fold_i==1])
                 print('class_0_count train', class_0_count)

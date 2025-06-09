@@ -4,14 +4,14 @@ import os
 from collections import defaultdict
 
 # Base directory
-base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_long"
+base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_ADAMW_short"
 
 # Seeds and labels percentages to check
-seeds = [0, 1, 2, 3, 4]
-labels_percentages = [100, 1]
+seeds = range(30)
+labels_percentages = [100, 10, 1]
 
 # Paradigms to organize by
-paradigms = ["vicreg", "mae", "supervised", "medbooster", "simim"]
+paradigms = ["mae"]
 
 # Dictionaries to hold found and missing fold_0 folders per paradigm
 found_folders = defaultdict(list)
