@@ -18,7 +18,7 @@ from utils.model_utils import NativeScalerWithGradNormCount as NativeScaler
 
 # models
 from models.VICReg import init_vicreg, init_vicreg_deit
-from models.MedBooster import init_medbooster, init_medbooster_deit
+from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
 from models.SimMIM import init_simim
 from models import MAE_pretrain_model
 
@@ -179,9 +179,15 @@ def main(args):
                           ]
 
         elif (args.paradigm == 'supervised') or (args.paradigm == 'medbooster'):
-            transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
-                          data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
-                          ]
+            if '3D' in args.backbone:
+                print('3D data augm')
+                transforms = [data_augmentations.medbooster_augmentations_3D.TrainTransform_Crop_Affine_Noise_3D, # augmentation
+                            data_augmentations.medbooster_augmentations_3D.TrainTransform_Crop_3D, # default transform
+                           ]
+            else:
+                transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
+                            data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
+                            ]
 
         elif (args.paradigm == 'mae'):
             #transforms = [data_augmentations.neuro_booster_augmentations.TrainTransform_Resize_Norm]
@@ -195,7 +201,11 @@ def main(args):
         else:
             print('paradigm not implemented')
 
-        train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, transforms)
+        if '3D' in args.backbone:
+            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, transforms)
+
+        else:
+            train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, transforms)
 
         ################## MODEL ARCHITECTURE:
         print('INITIALIZING MODEL')
@@ -216,7 +226,7 @@ def main(args):
                 model = init_medbooster_deit(args).cuda(gpu)
                 print(model)
             else:
-                if '_3D' in args.backnone:
+                if '_3D' in args.backbone:
                     model = init_medbooster_3D(args).cuda(gpu)
                 else:
                     model = init_medbooster(args).cuda(gpu)

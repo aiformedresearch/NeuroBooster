@@ -1,5 +1,7 @@
 
 import models.backbones.resnet as resnet
+import models.backbones.resnet_3D as resnet_3D
+from models.backbones.resnet_3D import generate_model_with_output_dim
 from models.backbones.beit_vision_transformer import beit_encoder
 from models.backbones import deit_vision_transformer, deit_vision_transformer_no_masking_no_decoder
 import torch
@@ -7,7 +9,7 @@ from torch import nn
 from models.VICReg import Projector
 # from models import MAE_finetune_model # this has learnable pos embedding
 
-class init_medbooster(nn.Module):
+class init_medbooster_3D(nn.Module):
     def __init__(self, args):
         super().__init__()
 
@@ -48,7 +50,7 @@ class init_medbooster(nn.Module):
         return x
 
 
-class init_medbooster_3D(nn.Module):
+class init_medbooster(nn.Module):
     def __init__(self, args):
         super().__init__()
 

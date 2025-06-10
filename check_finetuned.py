@@ -27,7 +27,7 @@ for seed in seeds:
             fold_0_path = os.path.join(
                 base_dir,
                 f"seed{seed}",
-                "AGE",
+                "ADNI",
                 paradigm,
                 f"labels_percentage_{perc}",
                 "fold_0"

@@ -15,6 +15,105 @@ import data_augmentations.medbooster_augmentations
 import data_augmentations.simim_augmentations
 import data_augmentations.vicreg_augmentations
 
+from torch.utils.data import Dataset
+import numpy as np
+import nibabel as nib
+import torch
+import random
+
+from torch.utils.data import Dataset
+import numpy as np
+import nibabel as nib
+import torch
+import random
+
+from torch.utils.data import Dataset
+import torch
+import nibabel as nib
+import numpy as np
+import random
+
+
+class ADNI_AGE_Dataset_3D(Dataset):
+    """
+    Load actual 3D NIfTI volumes (already shaped as 3D data).
+    """
+
+    def __init__(self, args, fold_targets, fold_indexes, transforms, train_mean=False, train_std=False):
+        self.fold_targets = fold_targets    
+        self.fold_indexes = fold_indexes
+        self.paradigm = args.paradigm
+        self.augmentation_rate = getattr(args, "augmentation_rate", 0)
+
+        # Load NIfTI data
+        nifti_path = "/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/3D_data/17_01_2024/AgePred_3D.nii.gz"  # replace with your real path
+        ramdisk_path = "/dev/shm/AgePred_3D.npy"
+
+        if os.path.exists(ramdisk_path):
+            print(f"✅ Loading data from RAM (/dev/shm): {ramdisk_path}")
+            self.all_imgs = np.load(ramdisk_path, mmap_mode='r')
+        else:
+            print(f"🚀 Loading NIfTI and saving to RAM (/dev/shm)")
+            nifti_obj = nib.load(nifti_path)
+            self.all_imgs = np.asarray(nifti_obj.dataobj, dtype=np.float32)
+            np.save(ramdisk_path, self.all_imgs)
+            print(f"✅ Saved to {ramdisk_path}")
+
+        #self.all_imgs = nib.load(args.images_dir)
+        #self.all_imgs = np.asanyarray(self.all_imgs.dataobj)  # shape: (W, H, D, N)
+        self.all_imgs = np.float32(self.all_imgs)
+
+        # Select fold images: (W, H, D, N) → (N, 1, D, H, W)
+        self.fold_imgs = self.all_imgs[:, :, :, fold_indexes]             # (W, H, D, selected_N)
+        self.fold_imgs = np.transpose(self.fold_imgs, (3, 2, 1, 0))       # (N, D, H, W)
+        self.fold_imgs = np.expand_dims(self.fold_imgs, axis=1)          # (N, 1, D, H, W)
+        self.fold_imgs = self.fold_imgs / 255.0
+        self.fold_imgs = 2.0 * self.fold_imgs - 1.0  # Normalize to [-1, 1]
+
+        # Normalize statistics
+        all_pixels = self.fold_imgs.reshape(self.fold_imgs.shape[0], -1)
+        if train_mean:
+            self.mean = train_mean
+            self.std = train_std
+            print(f'mean pixel from train set: {self.mean}, std pixels from train set: {self.std}')
+        else:
+            self.mean = np.mean(all_pixels)
+            self.std = np.std(all_pixels)
+            print(f'mean pixel: {self.mean}, std pixels: {self.std}')
+
+        # Transforms
+        self.transform = transforms[0](args, self.mean, self.std)
+        if len(transforms) > 1:
+            self.default_transform = transforms[1](args, self.mean, self.std)
+        else:
+            self.default_transform = self.transform
+
+    def __getitem__(self, index):
+        # Get 3D volume: shape [1, D, H, W]
+        volume = torch.tensor(self.fold_imgs[index])  # Already [1, D, H, W]
+
+        # Apply transforms
+        if self.paradigm in ['vicreg', 'supervised', 'medbooster', 'mae']:
+            transform_fn = self.transform if random.random() < self.augmentation_rate else self.default_transform
+            img_x = transform_fn(volume)
+            img_y = self.transform(volume) if self.paradigm == 'vicreg' else torch.zeros(1)
+            tabular = torch.zeros(1) if self.paradigm in ['vicreg', 'mae'] else self.fold_targets[index]
+
+        elif self.paradigm == 'simim':
+            transform_fn = self.transform if random.random() < self.augmentation_rate else self.default_transform
+            img_x, img_y = transform_fn(volume)
+            tabular = torch.zeros(1)
+        else:
+            raise Exception('paradigm not found')
+
+        return img_x, img_y, tabular, volume, self.fold_indexes[index]
+
+    def __len__(self):
+        return self.fold_imgs.shape[0]
+
+
+
+
 class ADNI_AGE_Dataset(Dataset):
     """
     Load the dataset.
