@@ -17,7 +17,7 @@ import math
 from utils.model_utils import NativeScalerWithGradNormCount as NativeScaler
 
 # models
-from models.VICReg import init_vicreg, init_vicreg_deit
+from models.VICReg import init_vicreg, init_vicreg_deit, init_vicreg_3D
 from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
 from models.SimMIM import init_simim
 from models import MAE_pretrain_model
@@ -257,7 +257,10 @@ def main(args):
                 model = init_vicreg_deit(args).cuda(gpu)
                 print(model)
             else:
-                model = init_vicreg(args).cuda(gpu)
+                if '_3D' in args.backbone:
+                    model = init_vicreg_3D(args).cuda(gpu)
+                else:
+                    model = init_vicreg(args).cuda(gpu)
             criterion = vicreg_loss(args).cuda(gpu)
 
         elif args.paradigm == 'mae':
@@ -417,38 +420,10 @@ def main(args):
                             else:
                                 step_metrics = {'loss':loss.item()}
                     
-                if True: #not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
-                    lr = adjust_learning_rate(args, optimizer, loader, step)
-
-                # if 'deit' in args.backbone:
-                #     # ====== BEGIN MAE-DERIVED CODE ======
-                #     # Adapted from https://github.com/facebookresearch/mae
-                #     # Licensed under CC BY-NC 4.0
-
-                #     # per iteration (instead of per epoch) lr scheduler
-                #     adjust_learning_rate_mae(optimizer, step / len(loader) + epoch, args)
-                    
-                #     #samples = samples.to(device, non_blocking=True)
-                #     loss_value = loss.item()
-
-                #     if not math.isfinite(loss_value):
-                #         print("Loss is {}, stopping training".format(loss_value))
-                #         sys.exit(1)
-
-                #     lr = optimizer.param_groups[0]["lr"]
-                #     step_metrics = {'loss':loss.item()}
-                #     # ====== END MAE-DERIVED CODE ======
-
-                #     loss_scaler(loss, optimizer, parameters=model.parameters(), update_grad=True)
-                #     optimizer.zero_grad()
-                #     # ====== END MAE-DERIVED CODE ======
+                lr = adjust_learning_rate(args, optimizer, loader, step)
                 
-                # else:
                 scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
-                # if ('deit' in args.backbone) or ('beit' in args.backbone):
-                #     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
-                #     if False:
-                #         lr_scheduler.step_update(epoch * num_steps + step)
+
                 scaler.step(optimizer)
                 scaler.update()
 

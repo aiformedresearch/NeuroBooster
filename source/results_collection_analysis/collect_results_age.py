@@ -3,11 +3,11 @@ import os
 import pandas as pd
 #python MAIN/source/results_collection_analysis/collect_results.py
 
-seeds = range(5)
-paradigms =  ['supervised', 'medbooster', 'vicreg', 'simim', 'mae']
+seeds = range(30)
+paradigms =  ['supervised', 'neurobooster', 'vicreg', 'simim', 'mae', 'bbworld']
 folds = range(1)
-labels_percentage_list= [100,1]
-source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_long')
+labels_percentage_list= [100,10, 1]
+source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/EXPERIMENTS_MRI_augm_21_11/EXPS/')
 destination_folder_path = source_folder_path_all_experiments/ f'results_AGE/' 
 os.makedirs(destination_folder_path, exist_ok=True)
 

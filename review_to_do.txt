@@ -233,3 +233,5 @@ MAE is needed to show that is it not the ViT or the optimization the problem, bu
 compare using the exact same optimization of before for resnet so that we compare the results in terms of only different backbone
 fine-tuning as it was
 
+3D batch size 16 out of memory
+3D batch size 8 25 GB supervised

@@ -12,21 +12,22 @@ dataset_name = 'AGE'
 metrics = ['MAE']
 bw_adjust = 0.9
 cut = 3
-source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_long') / 'results_AGE'
+source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/EXPERIMENTS_MRI_augm_21_11/EXPS') / 'results_AGE'
 
 paradigm_colors = {
     'SL': 'purple',
     'MB': 'lightblue',
     'VICReg': 'red',
     'SimMIM': 'orange',
-    'MAE': 'green'
+    'MAE': 'green',
+    'MB+CONT': 'blue'
 }
 
 matplotlib.rcParams.update({'font.size': 36})
-seeds = range(5)
-paradigms = ['supervised', 'medbooster', 'vicreg', 'simim', 'mae']
+seeds = range(30)
+paradigms = ['supervised', 'neurobooster', 'vicreg', 'simim', 'mae', 'bbworld']
 folds = range(1)
-labels_percentage_list = [100, 1]
+labels_percentage_list = [100, 10, 1]
 
 destination_folder_path = source_folder_path_all_experiments
 
@@ -44,7 +45,7 @@ for row_idx, labels_percentage in enumerate(labels_percentage_list):
     metric = 'MAE'
     df = pd.read_csv(source_folder_path_all_experiments / f'results_collected_{metric}_seeds_{seeds}_folds_{folds}_labels_percentage_{labels_percentage}_paradigms_{paradigms}.csv')
 
-    paradigms_names = {'supervised': 'SL', 'medbooster': 'MB', 'vicreg': 'VICReg', 'simim': 'SimMIM', 'baseline': 'baseline', 'mae': 'MAE'}
+    paradigms_names = {'supervised': 'SL', 'neurobooster': 'MB', 'vicreg': 'VICReg', 'simim': 'SimMIM', 'baseline': 'baseline', 'mae': 'MAE', 'bbworld':'MB+CONT'}
     df = df.drop('Unnamed: 0', axis=1, errors='ignore')
     df.columns = [paradigms_names[col] for col in df.columns]
     df_results = df
@@ -91,7 +92,7 @@ fig.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, 1.06
 
 plt.subplots_adjust(hspace=0.6, top=0.90, bottom=0.1, left=0.08, right=0.95)
 
-plt.savefig(destination_folder_path / f'new_center_title_combined_plots_MAE_{bw_adjust}_{cut}_{dpi}dpi.png', dpi=dpi, bbox_inches='tight')
+plt.savefig(destination_folder_path / f'new_center_title_combined_plots_MAE_mae_bbworld{bw_adjust}_{cut}_{dpi}dpi.png', dpi=dpi, bbox_inches='tight')
 plt.close()
 
 results_mean_file.close()

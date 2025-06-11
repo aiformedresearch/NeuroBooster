@@ -24,8 +24,10 @@ from models.backbones import deit_vision_transformer
 from models.MAE_pretrain_model import interpolate_pos_embed
 
 # models
-from models.VICReg import init_vicreg, init_vicreg_deit, Projector
-from models.MedBooster import init_medbooster, init_medbooster_deit
+from models.VICReg import init_vicreg, init_vicreg_deit, Projector, init_vicreg_3D
+from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
+import models.backbones.resnet_3D as resnet_3D
+from models.backbones.resnet_3D import generate_model_with_output_dim
 
 
 def str2bool(v):
@@ -255,7 +257,7 @@ def main_worker(gpu, args):
         if '3D' in args.backbone:
             train_transform = [TrainTransform3D] 
             val_transform = [ValTransform3D]
-            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, transforms)
+            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
             val_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
 
         else:
