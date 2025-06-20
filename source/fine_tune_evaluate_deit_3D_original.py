@@ -26,8 +26,8 @@ from models.MAE_pretrain_model import interpolate_pos_embed
 # models
 from models.VICReg import init_vicreg, init_vicreg_deit, Projector, init_vicreg_3D
 from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
-import models.backbones.resnet_3D as resnet_3D
-from models.backbones.resnet_3D import generate_model_with_output_dim
+import models.backbones.resnet_3D_original as resnet_3D_original
+from models.backbones.resnet_3D_original import generate_model_with_output_dim
 
 
 def str2bool(v):
@@ -367,6 +367,7 @@ def main_worker(gpu, args):
 
         elif 'resnet' in args.backbone: 
             if '_3D' in args.backbone:
+                print('3D backbone')
                 depth_str = args.backbone.replace('resnet', '').replace('_3D', '')
                 model_depth = int(depth_str)
 

@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(0)
-labels_percentages=(100)
-paradigms=(supervised)
+seeds=(8 2)
+labels_percentages=(100 10 1)
+paradigms=(mae)
 datasets=(AGE)
-backbones=(resnet34_3D)
+backbones=(deit)
 
 # Constants (unchanged)
-images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/3D_data/17_01_2024/AgePred_3D.nii.gz}
+images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
 tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
 resize_shape=${resize_shape:-224}
 train_classes_percentage_values=${train_classes_percentage_values:-None}
@@ -22,12 +22,12 @@ num_workers=${num_workers:-4}
 device=${device:-cuda:0}
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-50}
-pretrain_min_epochs=${pretrain_min_epochs:-10}
-pretrain_patience=${pretrain_patience:-10}
-pretrain_batch_size=${pretrain_batch_size:-8}
+pretrain_epochs=${pretrain_epochs:-300}
+pretrain_min_epochs=${pretrain_min_epochs:-200}
+pretrain_patience=${pretrain_patience:-50}
+pretrain_batch_size=${pretrain_batch_size:-256}
 pretrain_optim=${pretrain_optim:-LARS}
-pretrain_base_lr=${pretrain_base_lr:-0.0005} #5e-4 fixed for beit or deit backbone!!
+pretrain_base_lr=${pretrain_base_lr:-0.05} #5e-4 fixed for beit or deit backbone!!
 pretrain_weight_decay=${pretrain_weight_decay:-1e-6}
 pretrain_weighted_loss=${pretrain_weighted_loss:-True} # in our experiments the pre-training was performed solely on the regression task so this parameter was not used
 
@@ -67,7 +67,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_06_10_3D_noaugm/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_06_11_ADAMW_short/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -77,7 +77,7 @@ for seed in "${seeds[@]}"; do
 
           # if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-          #   CUDA_VISIBLE_DEVICES=3 python source/pretraining_deit_LARS_3D.py \
+          #   CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit_SIMIMOPT.py \
           #     --paradigm ${paradigm} \
           #     --labels_percentage ${labels_percentage} \
           #     --images_dir ${images_dir} \
@@ -116,13 +116,13 @@ for seed in "${seeds[@]}"; do
           #     --simim_drop_path_rate ${simim_drop_path_rate} \
           #     --weight-decay ${pretrain_weight_decay} \
           #     --weighted_loss ${pretrain_weighted_loss} \
-          #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
+          #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1 &
           # else
           #   echo "⏭ Skipping training (already done or not needed)"
           # fi
 
           if [[ ! -f "$finetune_DONE_FILE" ]]; then
-            CUDA_VISIBLE_DEVICES=3 python source/fine_tune_evaluate_deit_3D.py \
+            CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate_deit.py \
               --paradigm ${paradigm} \
               --images_dir ${images_dir} \
               --tabular_dir ${tabular_dir} \
@@ -162,7 +162,7 @@ for seed in "${seeds[@]}"; do
               --patience ${finetune_patience} \
               --min_epochs ${finetune_min_epochs} \
               --seed ${seed} \
-              > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1 &
+              > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1
           
           else
             echo "⏭ Skipping finetuning (already done)"

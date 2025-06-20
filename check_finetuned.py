@@ -4,14 +4,15 @@ import os
 from collections import defaultdict
 
 # Base directory
-base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_ADAMW_short"
+base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_06_16_LARS_long_no_augm"
 
 # Seeds and labels percentages to check
-seeds = range(30)
-labels_percentages = [100, 10, 1]
+seeds = range(5)
+labels_percentages = [100, 1]
+dataset='AGE'
 
 # Paradigms to organize by
-paradigms = ["mae"]
+paradigms = ["medbooster", "supervised"]
 
 # Dictionaries to hold found and missing fold_0 folders per paradigm
 found_folders = defaultdict(list)
@@ -27,7 +28,7 @@ for seed in seeds:
             fold_0_path = os.path.join(
                 base_dir,
                 f"seed{seed}",
-                "AGE",
+                f"{dataset}",
                 paradigm,
                 f"labels_percentage_{perc}",
                 "fold_0"
@@ -40,7 +41,7 @@ for seed in seeds:
                 missing_folders[paradigm].append(fold_0_path)
 
 # 🟢 First: Print found
-print("\n========== FOUND `pretraining_done.txt` ==========")
+print("\n========== FOUND `finetuning_ablation_done.txt` ==========")
 for paradigm in paradigms:
     paths = found_folders.get(paradigm, [])
     print(f"\nParadigm: {paradigm}")
@@ -49,7 +50,7 @@ for paradigm in paradigms:
         print(path)
 
 # 🔴 Then: Print missing
-print("\n========== MISSING `pretraining_done.txt` ==========")
+print("\n========== MISSING `finetuning_ablation_done.txt` ==========")
 for paradigm in paradigms:
     paths = missing_folders.get(paradigm, [])
     print(f"\nParadigm: {paradigm}")

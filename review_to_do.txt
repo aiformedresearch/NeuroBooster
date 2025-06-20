@@ -235,3 +235,18 @@ fine-tuning as it was
 
 3D batch size 16 out of memory
 3D batch size 8 25 GB supervised
+
+
+Data augmentation make the epoch slow from 2 min to one hour
+
+I have modified the backbone removing batchnorm and instead using group norm which is more stable for smaller batch size
+
+Similarly I am using ADAMw
+
+attenzione al resnet 3D per l'avg pooling, resnet10 anzichè 34, lr piu piccolo per via del batch size piu piccolo, AdamW invece di LARS per via di batch size piu piccolo, uso di group norm invece di batch norm per via del batch size piu piccolo
+
+motivazioni per comparare solo medbooster con supervised:
+- entrambi non necessitano data augmentation, è solo un miglioramento
+- senza data augmentation un epoca è 2 min anzichè un ora, quindi per i tempi 
+- medbooster ha senso che sia a maggior ragione piu forte degli altri paradigmi perchè si affida a delle features che in teoria sono volumetriche
+
