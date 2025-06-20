@@ -270,21 +270,6 @@ def main(args):
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
 
-        # if 'deit' in args.backbone:
-        #     # ====== BEGIN MAE-DERIVED CODE ======
-        #     # Adapted from https://github.com/facebookresearch/mae
-        #     # Licensed under CC BY-NC 4.0
-        #     print(args.mae_lr)
-        #     if args.mae_lr is None:  # only base_lr is specified
-        #         args.accum_iter = 1
-        #         eff_batch_size = args.batch_size * args.accum_iter * 1 #misc.get_world_size() =1
-        #         args.mae_lr = args.mae_blr * eff_batch_size / 256
-        #     param_groups = optim_factory.add_weight_decay(model, args.mae_weight_decay)
-        #     optimizer = torch.optim.AdamW(param_groups, lr=args.mae_lr, betas=(0.9, 0.95))
-        #     print(optimizer)
-        #     loss_scaler = NativeScaler()
-        #     # ====== END MAE-DERIVED CODE ======
-
         # else:
         param_groups = model.parameters()
 
@@ -372,6 +357,7 @@ def main(args):
                         file.write(f"{key}: {value}\n")
 
         early_stopping = EarlyStopping(patience=args.patience, min_epochs = args.min_epochs)
+        accum_iter = 32  # Simulate batch size of 256 with batch size 8
 
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
@@ -379,7 +365,8 @@ def main(args):
                 img_x = img_x.to(torch.float32)  
                 img_y = img_y.to(torch.float32) 
 
-                optimizer.zero_grad()
+                if not(accum_iter):
+                    optimizer.zero_grad() # for gradient accumulation
 
                 with torch.cuda.amp.autocast():
                     if args.paradigm == 'mae':
@@ -432,9 +419,20 @@ def main(args):
                     
                 lr = adjust_learning_rate(args, optimizer, loader, step)
                 
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+
+                if accum_iter:
+                    loss = loss / accum_iter  # Normalize loss to simulate large batch
+                    scaler.scale(loss).backward()
+
+                    if (step + 1) % accum_iter == 0 or (step + 1) == len(loader):
+                        scaler.step(optimizer)
+                        scaler.update()
+                        optimizer.zero_grad()
+                else:
+
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
 
                 # DEBUG: monitor GPU memory (optional)
                 # gpu_memory = torch.cuda.max_memory_allocated() / 1024**2

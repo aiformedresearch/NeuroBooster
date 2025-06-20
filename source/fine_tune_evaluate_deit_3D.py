@@ -471,12 +471,12 @@ def main_worker(gpu, args):
 
         early_stopping = EarlyStopping(patience=args.patience, min_epochs = args.min_epochs)
         criterion_MAE = nn.L1Loss() # just to compute an additional metric to compare results with other works on the same dataset
+        accum_iter = 32  # Simulate batch size 256 with batch size 8
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
 
             if 'deit' in args.backbone:
                 model.train(True)
-                accum_iter = 1
                 optimizer.zero_grad()
             else:
                 ############# FINETUNING:
@@ -487,7 +487,8 @@ def main_worker(gpu, args):
                     backbone.train() # to set the mode, so that layers like batchn ormalization behave properly
 
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(train_loader, start=epoch * len(train_loader)):
-                optimizer.zero_grad()
+                if not(accum_iter):
+                    optimizer.zero_grad()
 
                 with torch.cuda.amp.autocast():  # automaitc mixed precision
                     if 'deit' in args.backbone:
@@ -532,11 +533,24 @@ def main_worker(gpu, args):
                                 finetuning_loss_not_weighted = monitor_criterion(output, tabular.cuda(gpu, non_blocking=True))
                                 train_step_metrics = {'fine_tuning_loss': finetuning_loss.item(), 'finetuning_loss_not_weighted': finetuning_loss_not_weighted.item()}
                                 
+                
                 with torch.cuda.amp.autocast():
-                    scaler.scale(finetuning_loss).backward() # to avoid underflow of gradients when using autocast
-                    scheduler.step()
-                    scaler.step(optimizer)
-                    scaler.update()
+
+                    if accum_iter:
+                        loss = finetuning_loss / accum_iter
+                        scaler.scale(loss).backward()
+
+                        if (step + 1) % accum_iter == 0 or (step + 1) == len(train_loader):
+                            scaler.step(optimizer)
+                            scaler.update()
+                            optimizer.zero_grad()
+                            scheduler.step()
+
+                    else:
+                        scaler.scale(finetuning_loss).backward() # to avoid underflow of gradients when using autocast
+                        scheduler.step()
+                        scaler.step(optimizer)
+                        scaler.update()
 
                 # compute avg loss:
                 with torch.no_grad():
