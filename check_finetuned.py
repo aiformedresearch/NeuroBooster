@@ -12,7 +12,7 @@ labels_percentages = [100, 1]
 dataset='AGE'
 
 # Paradigms to organize by
-paradigms = ["medbooster", "supervised"]
+paradigms = ["supervised", "medbooster"]
 
 # Dictionaries to hold found and missing fold_0 folders per paradigm
 found_folders = defaultdict(list)

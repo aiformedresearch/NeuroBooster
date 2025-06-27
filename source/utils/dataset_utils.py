@@ -447,7 +447,25 @@ def get_tabular_info(args):
             num_classes = 1
         else:
             print('MULTIPLE TARGET VARIABLE')
-            list_feature_names = ['cortex_FD','lh_cortex_FD','rh_cortex_FD','lh_frontal_cortex_FD','lh_temporal_cortex_FD','lh_parietal_cortex_FD','lh_occipital_cortex_FD','rh_frontal_cortex_FD','rh_temporal_cortex_FD','rh_parietal_cortex_FD','rh_occipital_cortex_FD','cortex_CT','lh_cortex_CT','rh_cortex_CT','lh_frontal_cortex_CT','lh_occipital_cortex_CT','lh_temporal_cortex_CT','lh_parietal_cortex_CT','rh_frontal_cortex_CT','rh_occipital_cortex_CT','rh_temporal_cortex_CT','rh_parietal_cortex_CT']
+            if 'eTIV' in list(df.columns):
+                list_feature_names = [
+                    "cortex_FD", "lh_cortex_FD", "rh_cortex_FD", "lh_frontal_cortex_FD",
+                    "lh_temporal_cortex_FD", "lh_parietal_cortex_FD", "lh_occipital_cortex_FD",
+                    "rh_frontal_cortex_FD", "rh_temporal_cortex_FD", "rh_parietal_cortex_FD",
+                    "rh_occipital_cortex_FD", "cortex_CT", "lh_cortex_CT", "rh_cortex_CT",
+                    "lh_frontal_cortex_CT", "lh_occipital_cortex_CT", "lh_temporal_cortex_CT",
+                    "lh_parietal_cortex_CT", "rh_frontal_cortex_CT", "rh_occipital_cortex_CT",
+                    "rh_temporal_cortex_CT", "rh_parietal_cortex_CT", "Left_Caudate",
+                    "Left_Putamen", "Left_Pallidum", "Left_Hippocampus", "Left_Amygdala",
+                    "Left_Accumbens_area", "Right_Caudate", "Right_Putamen", "Right_Pallidum",
+                    "Right_Hippocampus", "Right_Amygdala", "Right_Accumbens_area",
+                    "WM_hypointensities", "SubCortGrayVol", "Left_Thalamus", "Right_Thalamus",
+                    "lhCorticalWhiteMatterVol", "rhCorticalWhiteMatterVol", "lhCortexVol",
+                    "rhCortexVol"
+                ]
+
+            else:
+                list_feature_names = ['cortex_FD','lh_cortex_FD','rh_cortex_FD','lh_frontal_cortex_FD','lh_temporal_cortex_FD','lh_parietal_cortex_FD','lh_occipital_cortex_FD','rh_frontal_cortex_FD','rh_temporal_cortex_FD','rh_parietal_cortex_FD','rh_occipital_cortex_FD','cortex_CT','lh_cortex_CT','rh_cortex_CT','lh_frontal_cortex_CT','lh_occipital_cortex_CT','lh_temporal_cortex_CT','lh_parietal_cortex_CT','rh_frontal_cortex_CT','rh_occipital_cortex_CT','rh_temporal_cortex_CT','rh_parietal_cortex_CT']
             num_classes = len(list_feature_names)
             df_features = df[list_feature_names]
             targets = df_features.to_numpy() # features as labels
