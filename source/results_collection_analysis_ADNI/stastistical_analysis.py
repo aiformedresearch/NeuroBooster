@@ -27,7 +27,7 @@ def stat_analysis(df, col1, col2, destination_path):
     # Paired Samples t-Test
     # A paired samples t-test is used to determine if two population means are equal
     # in which each observation in one sample can be paired with an observation in the other sample.
-    print('One-tailed Paired Samples t-Test', ttest_rel(df[col1], df[col2],  alternative = 'less'), file = destination_path) #alternative = 'less': the mean of the distribution underlying the first sample is less than the mean of the distribution underlying the second sample.
+    print('One-tailed Paired Samples t-Test', ttest_rel(df[col1], df[col2],  alternative = 'greater'), file = destination_path) #alternative = 'less': the mean of the distribution underlying the first sample is less than the mean of the distribution underlying the second sample.
 
     #perform Welch's t-test
     # Welch’s t-test is similar to the independent two sample t-test, except it does not assume 
@@ -36,7 +36,7 @@ def stat_analysis(df, col1, col2, destination_path):
 
 
     #wilcoxon(x, y=None, zero_method='wilcox', correction=False, alternative='two-sided', method='auto', *, axis=0, nan_policy='propagate', keepdims=False)[source]
-    print("One-tailed Wilcoxon signed-rank", wilcoxon(df[col1], df[col2],  alternative = 'less'), file = destination_path) # alternative = 'less. the distribution underlying d is stochastically less than a distribution symmetric about zero.
+    print("One-tailed Wilcoxon signed-rank", wilcoxon(df[col1], df[col2],  alternative = 'greater'), file = destination_path) # alternative = 'less. the distribution underlying d is stochastically less than a distribution symmetric about zero.
 
 #One-tailed paired Samples t-Test: a noi interessa che neurobosster sia più performante degli altri (quindi che l'errore (RMSE o MAE) di neurobooster sia inferiore agli altri). 
 #Farei quindi un test ad una sola coda (in python scipy dovrebbe esserci il parametro alternative per gestire questo)
@@ -44,18 +44,21 @@ def stat_analysis(df, col1, col2, destination_path):
 #One-tailed Wilcoxon signed-rank test: il Wilcoxon test per dati appaitai si chiama Wilcoxon signed-rank test ed anche in questo caso lo devi fare ad una coda per il discorso fatto prima.
 
 seeds = range(30)
-paradigms = ['vicreg', 'simim', 'neurobooster', 'supervised', 'bbworld']
+paradigms = ['supervised', 'vicreg', 'bbworld', 'simim', 'neurobooster']
 folds = range(1)
 labels_percentage_list= [100, 10]
-source_folder_path_all_experiments = Path('/home/andreaespis/diciotti/med-booster/EXPERIMENTS_MRI_augm_21_11')/'results'
+source_folder_path_all_experiments = Path('/home/andreaespis/diciotti/med-booster/EXPERIMENTS_MRI_augm_21_11')/'results_ADNI'
 destination_folder_path = source_folder_path_all_experiments
 
 destination_stats = open(destination_folder_path/'stats.txt' , "a", buffering=1)
-for paradigms_to_compare in [['neurobooster', 'bbworld'], ['bbworld', 'neurobooster'], ['neurobooster','vicreg'], ['neurobooster','supervised'], ['neurobooster','simim']]:
+for paradigms_to_compare in [['vicreg','neurobooster'],['neurobooster', 'bbworld'], ['neurobooster','vicreg'], ['neurobooster','supervised'], ['neurobooster','simim']]:
     for labels_percentage in labels_percentage_list:
-        for metric in ['RMSE', 'MAE']:
+        for metric in ['PR_AUC', 'AUC']:
             print(f'\n {metric}, {labels_percentage}:', file = destination_stats)
             df_results = pd.read_csv(source_folder_path_all_experiments /f'results_collected_{metric}_seeds_{seeds}_folds_{folds}_labels_percentage_{labels_percentage}_paradigms_{paradigms}.csv')
+            print(df_results)
+            df_results = df_results[(df_results != 0).all(axis=1)]
+            print(df_results)
             stat_analysis(df_results, paradigms_to_compare[0], paradigms_to_compare[1],  destination_stats)
 
 

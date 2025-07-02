@@ -7,6 +7,7 @@ import time
 import json
 import copy
 from datetime import datetime
+import torch.distributed as dist
 
 # utils
 import utils.general_utils as general_utils
@@ -124,6 +125,7 @@ def get_arguments():
     parser.add_argument('--comment', default='', type=str, help='leave a comment about the experiment')
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument('--local_rank', type=int, default=0, help='local rank passed from torchrun')
 
     return parser
 
@@ -131,8 +133,21 @@ def main(args):
     
     print(f'paradigm: {args.paradigm}')
     ######### setup:
-    gpu = torch.device(args.device)
+    #gpu = torch.device(args.device)
+
+    import torch.distributed as dist
+    import torch.multiprocessing as mp
+    import os
+
+    dist.init_process_group(backend='nccl')
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    gpu = torch.device("cuda", local_rank)
     args.gpu = gpu
+
+    #gpu = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #args.gpu = gpu 
+
     args.exp_dir_original = args.exp_dir
     args.workflow_step = 'pretraining' # needed because we call some functions both in the script for pretraining and finetuning
 
@@ -227,7 +242,9 @@ def main(args):
                 print(model)
             else:
                 if '_3D' in args.backbone:
-                    model = init_medbooster_3D(args).cuda(gpu)
+                    model = init_medbooster_3D(args).to(gpu)
+                    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+
                 else:
                     model = init_medbooster(args).cuda(gpu)
 
@@ -270,28 +287,55 @@ def main(args):
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
 
+        # if 'deit' in args.backbone:
+        #     # ====== BEGIN MAE-DERIVED CODE ======
+        #     # Adapted from https://github.com/facebookresearch/mae
+        #     # Licensed under CC BY-NC 4.0
+        #     print(args.mae_lr)
+        #     if args.mae_lr is None:  # only base_lr is specified
+        #         args.accum_iter = 1
+        #         eff_batch_size = args.batch_size * args.accum_iter * 1 #misc.get_world_size() =1
+        #         args.mae_lr = args.mae_blr * eff_batch_size / 256
+        #     param_groups = optim_factory.add_weight_decay(model, args.mae_weight_decay)
+        #     optimizer = torch.optim.AdamW(param_groups, lr=args.mae_lr, betas=(0.9, 0.95))
+        #     print(optimizer)
+        #     loss_scaler = NativeScaler()
+        #     # ====== END MAE-DERIVED CODE ======
+
         # else:
         param_groups = model.parameters()
 
+        from torch.utils.data.distributed import DistributedSampler
+
         ######### OPTIMIZATION:
-        #### loader setup
-        drop_last=False
-        if len(train_dataset)>args.batch_size:
+        drop_last = len(train_dataset) > args.batch_size
+        if drop_last:
             print('dropping last batches')
-            drop_last = True
+
+        # Distributed sampler for multi-GPU
+        sampler = DistributedSampler(
+            train_dataset,
+            num_replicas=torch.distributed.get_world_size(),
+            rank=torch.distributed.get_rank(),
+            shuffle=True,
+            seed=args.seed
+        )
+
         g = torch.Generator()
         g.manual_seed(args.seed)
+
         loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             pin_memory=True,
-            sampler=None,
-            shuffle=True,
+            sampler=sampler,             # ✅ use sampler instead of shuffle
+            shuffle=False,               # ❌ shuffle must be False when sampler is set
             worker_init_fn=general_utils.seed_worker,
             generator=g,
             drop_last=drop_last,
         )
+
 
         # # optimizer
         # if ('beit' in args.backbone) or ('deit' in args.backbone):
@@ -326,17 +370,19 @@ def main(args):
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
             num_steps = len(loader)
 
-        # SAVE MODEL ARCHITECTURE AND OPTIMIZER:
-        for param_tensor in model.state_dict():
-            print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file = model_info_file)
+        
+        if dist.get_rank() == 0:
+            # SAVE MODEL ARCHITECTURE AND OPTIMIZER:
+            for param_tensor in model.state_dict():
+                print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file = model_info_file)
 
-        # Print optimizer's state_dict
-        for var_name in optimizer.state_dict():
-            print(var_name, "\t", optimizer.state_dict()[var_name], file = model_info_file)
+            # Print optimizer's state_dict
+            for var_name in optimizer.state_dict():
+                print(var_name, "\t", optimizer.state_dict()[var_name], file = model_info_file)
 
-        num_params, total_size_MB = general_utils.compute_model_size(model)
-        print(f"Number of parameters: {num_params}", file = model_info_file)
-        print(f"Total size (MB): {total_size_MB:.2f} MB", file = model_info_file)
+            num_params, total_size_MB = general_utils.compute_model_size(model)
+            print(f"Number of parameters: {num_params}", file = model_info_file)
+            print(f"Total size (MB): {total_size_MB:.2f} MB", file = model_info_file)
 
         ############ START PRE-TRAINING
         start_epoch = 0
@@ -357,16 +403,15 @@ def main(args):
                         file.write(f"{key}: {value}\n")
 
         early_stopping = EarlyStopping(patience=args.patience, min_epochs = args.min_epochs)
-        accum_iter = 32  # Simulate batch size of 256 with batch size 8
 
         for epoch in range(start_epoch, args.epochs):
+            sampler.set_epoch(epoch)
             starting_epoch = True
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
                 img_x = img_x.to(torch.float32)  
                 img_y = img_y.to(torch.float32) 
 
-                if not(accum_iter):
-                    optimizer.zero_grad() # for gradient accumulation
+                optimizer.zero_grad()
 
                 with torch.cuda.amp.autocast():
                     if args.paradigm == 'mae':
@@ -419,20 +464,9 @@ def main(args):
                     
                 lr = adjust_learning_rate(args, optimizer, loader, step)
                 
-
-                if accum_iter:
-                    loss = loss / accum_iter  # Normalize loss to simulate large batch
-                    scaler.scale(loss).backward()
-
-                    if (step + 1) % accum_iter == 0 or (step + 1) == len(loader):
-                        scaler.step(optimizer)
-                        scaler.update()
-                        optimizer.zero_grad()
-                else:
-
-                    scaler.scale(loss).backward()
-                    scaler.step(optimizer)
-                    scaler.update()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
                 # DEBUG: monitor GPU memory (optional)
                 # gpu_memory = torch.cuda.max_memory_allocated() / 1024**2
@@ -453,85 +487,102 @@ def main(args):
                 break
 
             ############## PLOT AND SAVE METRICS AT THE END OF EACH EPOCH
-            with torch.no_grad():
-                all_stats = dict(
-                    epoch=epoch,
-                    time=int(time.time() - start_time),
-                    base_lr=args.base_lr,
-                    lr=lr,
-                    day_time=str(datetime.now()),
-                )    
-
-                for metric_name, metric in train_all_metrics_dict.items():
-                    all_stats[metric_name] = metric
-
-                print(all_stats)
-                print(json.dumps(all_stats), file=all_stats_file)        
-                df_train_metrics = general_utils.update_df_metrics(
-                    df_train_metrics, epoch, train_all_metrics_dict,
-                    save_df_train_path, plot_df_train_path, 'train'
-                )
-
-                if loss < best_loss:
-                    best_loss = loss
-                    best_state = create_dict_state(args, model, optimizer, epoch)
-                
-                # Check for early stopping
-                early_stopping(train_all_metrics_dict['loss'], epoch=epoch)
             
-                if early_stopping.early_stop:
-                    last_state = create_dict_state(args, model, optimizer, epoch)
-                    torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
-                    torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
-                    print(f"EARLY STOPPAGE, epoch {epoch}")
-                    break
-    
-        print('No early stoppage, saving model to path:', args.exp_dir / f"pretrained.pth")
-        last_state = create_dict_state(args, model, optimizer, epoch)
-        torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
-        torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
-        (args.exp_dir / "pretraining_done.txt").touch()
+            if dist.get_rank() == 0:
+                with torch.no_grad():
+                    all_stats = dict(
+                        epoch=epoch,
+                        time=int(time.time() - start_time),
+                        base_lr=args.base_lr,
+                        lr=lr,
+                        day_time=str(datetime.now()),
+                    )    
+
+                    for metric_name, metric in train_all_metrics_dict.items():
+                        all_stats[metric_name] = metric
+
+                    print(all_stats)
+                    print(json.dumps(all_stats), file=all_stats_file)        
+                    df_train_metrics = general_utils.update_df_metrics(
+                        df_train_metrics, epoch, train_all_metrics_dict,
+                        save_df_train_path, plot_df_train_path, 'train'
+                    )
+
+                    if loss < best_loss:
+                        best_loss = loss
+                        best_state = create_dict_state(args, model, optimizer, epoch)
+                    
+                    # Check for early stopping
+                    early_stopping(train_all_metrics_dict['loss'], epoch=epoch)
+                
+                    if early_stopping.early_stop:
+                        last_state = create_dict_state(args, model, optimizer, epoch)
+                        torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
+                        torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
+                        print(f"EARLY STOPPAGE, epoch {epoch}")
+                        break
+                        
+        
+        if dist.get_rank() == 0:
+            print('No early stoppage, saving model to path:', args.exp_dir / f"pretrained.pth")
+            last_state = create_dict_state(args, model, optimizer, epoch)
+            torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
+            torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
+            (args.exp_dir / "pretraining_done.txt").touch()
+
+        dist.destroy_process_group()
 
 
-def create_dict_state(args, model, optimizer, epoch):        
-    if (args.paradigm in ['simim']) or ('beit' in args.backbone) :
-        state = dict(
-        epoch=epoch + 1,
-        model=copy.deepcopy(model.state_dict()),
-        optimizer=copy.deepcopy(optimizer.state_dict()),
-        )
-    elif (args.paradigm in ['supervised','medbooster']) and ('resnet' in args.backbone):
-        state = dict(
-        epoch=epoch + 1,
-        backbone=copy.deepcopy(model.backbone.state_dict()),
-        head=copy.deepcopy(model.head.state_dict()),
-        optimizer=copy.deepcopy(optimizer.state_dict()),
-        )
 
-    elif (args.paradigm in ['vicreg']) and ('resnet' in args.backbone):
-        state = dict(
-        epoch=epoch + 1,
-        backbone=copy.deepcopy(model.encoder.state_dict()),
-        head=copy.deepcopy(model.projector.state_dict()),
-        optimizer=copy.deepcopy(optimizer.state_dict()),
-        )           
+def create_dict_state(args, model, optimizer, epoch):     
+    if dist.get_rank() == 0:   
+        if (args.paradigm in ['simim']) or ('beit' in args.backbone) :
+            state = dict(
+            epoch=epoch + 1,
+            model=copy.deepcopy(model.state_dict()),
+            optimizer=copy.deepcopy(optimizer.state_dict()),
+            )
+        elif (args.paradigm in ['supervised','medbooster']) and ('resnet' in args.backbone):
+            state = dict(
+            epoch=epoch + 1,
+            backbone=copy.deepcopy(model.backbone.state_dict()),
+            head=copy.deepcopy(model.head.state_dict()),
+            optimizer=copy.deepcopy(optimizer.state_dict()),
+            )
 
-    elif 'deit' in args.backbone:
-        state = dict(
-        epoch=epoch + 1,
-        model=copy.deepcopy(model.state_dict()),
-        optimizer=optimizer.state_dict(),
-        )   
+        elif (args.paradigm in ['vicreg']) and ('resnet' in args.backbone):
+            state = dict(
+            epoch=epoch + 1,
+            backbone=copy.deepcopy(model.encoder.state_dict()),
+            head=copy.deepcopy(model.projector.state_dict()),
+            optimizer=copy.deepcopy(optimizer.state_dict()),
+            )           
+
+        elif 'deit' in args.backbone:
+            state = dict(
+            epoch=epoch + 1,
+            model=copy.deepcopy(model.state_dict()),
+            optimizer=optimizer.state_dict(),
+            )   
 
     return state      
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser('Pre-training script', parents=[get_arguments()])
-    args = parser.parse_args()
+import torch.multiprocessing as mp
+import os
+
+def run_ddp(rank, args):
+    os.environ["LOCAL_RANK"] = str(rank)
     general_utils.set_reproducibility(args.seed)
     main(args)
     torch.cuda.empty_cache()
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser('Pre-training script', parents=[get_arguments()])
+    args = parser.parse_args()
+
+    ngpus_per_node = torch.cuda.device_count()
+    #mp.spawn(run_ddp, nprocs=ngpus_per_node, args=(args,))
+    run_ddp(args.local_rank, args)
 
 
 

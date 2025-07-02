@@ -24,10 +24,8 @@ from models.backbones import deit_vision_transformer
 from models.MAE_pretrain_model import interpolate_pos_embed
 
 # models
-from models.VICReg import init_vicreg, init_vicreg_deit, Projector, init_vicreg_3D
-from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
-import models.backbones.resnet_3D as resnet_3D
-from models.backbones.resnet_3D import generate_model_with_output_dim
+from models.VICReg import init_vicreg, init_vicreg_deit, Projector
+from models.MedBooster import init_medbooster, init_medbooster_deit
 
 
 def str2bool(v):
@@ -253,19 +251,11 @@ def main_worker(gpu, args):
             monitor_criterion = nn.BCEWithLogitsLoss(pos_weight = None).cuda(gpu) 
         
         #### load dataset Data loading code
+        train_transform = [TrainTransform_Resize] 
+        val_transform = [ValTransform_Resize]
+        train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
+        val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
 
-        if '3D' in args.backbone:
-            train_transform = [TrainTransform3D] 
-            val_transform = [ValTransform3D]
-            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
-            val_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
-
-        else:
-            train_transform = [TrainTransform_Resize] 
-            val_transform = [ValTransform_Resize]
-            train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
-            val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
-            
         ####################### MODEL and optimization
 
         if 'deit' in args.backbone:
@@ -366,24 +356,7 @@ def main_worker(gpu, args):
 
 
         elif 'resnet' in args.backbone: 
-            if '_3D' in args.backbone:
-                depth_str = args.backbone.replace('resnet', '').replace('_3D', '')
-                model_depth = int(depth_str)
-
-                # Instantiate 3D ResNet
-                backbone, num_nodes_embedding = generate_model_with_output_dim(
-                    model_depth,
-                    n_input_channels=1,  # or 3, depending on your input
-                    conv1_t_size=7,
-                    conv1_t_stride=1,
-                    no_max_pool=False,
-                    shortcut_type='B',
-                    widen_factor=1.0,
-                    n_classes=1  # dummy classifier
-                )
-                backbone.fc = nn.Identity()  # remove classification head
-            else:
-                backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
+            backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
             state_dict = torch.load(args.pretrained_path, map_location='cpu')   
             msg = backbone.load_state_dict(state_dict["backbone"], strict=True)
             print(f'loaded pretrained with msg: {msg}')
@@ -643,49 +616,6 @@ def main_worker(gpu, args):
         (args.exp_dir / "finetuning_ablation_done.txt").touch()
 
 
-import torchio as tio
-from torchvision import transforms
-
-class TrainTransform3D:
-    def __init__(self, args, train_set_mean, train_set_std):
-        remove_pixels = int((256 - args.resize_shape) / 2)
-
-        self.transform = tio.Compose([
-            tio.Crop((remove_pixels, remove_pixels, 0)),  # (W, H, D)
-            tio.RandomAffine(
-                scales=(1.0, 1.0),
-                degrees=(10, 10, 10),  # Rotate up to ±10° on all axes
-                translation=(-5, 5),  # Translate randomly in each direction
-                isotropic=True,
-                default_pad_value='minimum'
-            ),
-        ])
-
-    def __call__(self, volume_tensor):
-        # volume_tensor shape: (1, D, H, W) or (C, D, H, W)
-        subject = tio.Subject(
-            mri=tio.ScalarImage(tensor=volume_tensor)
-        )
-        transformed = self.transform(subject)
-        return transformed.mri.data  # returns a tensor of shape (1, D, H, W)
-
-
-class ValTransform3D:
-    def __init__(self, args, train_set_mean, train_set_std):
-        remove_pixels = int((256 - args.resize_shape) / 2)
-
-        self.transform = tio.Compose([
-            tio.Crop((remove_pixels, remove_pixels, 0)),
-        ])
-
-    def __call__(self, volume_tensor):
-        subject = tio.Subject(
-            mri=tio.ScalarImage(tensor=volume_tensor)
-        )
-        transformed = self.transform(subject)
-        return transformed.mri.data
-
-
 # FINE-TUNING DATA AUGMENTATION:
 class UnsqueezeTransform(object):
     def __init__(self, dim):
@@ -709,7 +639,7 @@ class TrainTransform_Resize(object):
             [   
                 UnsqueezeTransform(dim=-1),
                 torchio.transforms.Crop(cropping = (remove_pixels_w, remove_pixels_h,0)),
-                torchio.transforms.RandomAffine(scales = (1,1), degrees = (-10,10), translation = (-5,5,-5,5,0,0), isotropic = True, default_pad_value = 'minimum'),
+                #torchio.transforms.RandomAffine(scales = (1,1), degrees = (-10,10), translation = (-5,5,-5,5,0,0), isotropic = True, default_pad_value = 'minimum'),
                 SqueezeTransform(),
             ]
         )

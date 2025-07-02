@@ -24,10 +24,8 @@ from models.backbones import deit_vision_transformer
 from models.MAE_pretrain_model import interpolate_pos_embed
 
 # models
-from models.VICReg import init_vicreg, init_vicreg_deit, Projector, init_vicreg_3D
-from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
-import models.backbones.resnet_3D as resnet_3D
-from models.backbones.resnet_3D import generate_model_with_output_dim
+from models.VICReg import init_vicreg, init_vicreg_deit, Projector
+from models.MedBooster import init_medbooster, init_medbooster_deit
 
 
 def str2bool(v):
@@ -253,19 +251,11 @@ def main_worker(gpu, args):
             monitor_criterion = nn.BCEWithLogitsLoss(pos_weight = None).cuda(gpu) 
         
         #### load dataset Data loading code
+        train_transform = [TrainTransform_Resize] 
+        val_transform = [ValTransform_Resize]
+        train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
+        val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
 
-        if '3D' in args.backbone:
-            train_transform = [TrainTransform3D] 
-            val_transform = [ValTransform3D]
-            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
-            val_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
-
-        else:
-            train_transform = [TrainTransform_Resize] 
-            val_transform = [ValTransform_Resize]
-            train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, train_transform)
-            val_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_val_fold_i, indexes_val_fold_i, val_transform, train_mean=train_dataset.mean, train_std=train_dataset.std)
-            
         ####################### MODEL and optimization
 
         if 'deit' in args.backbone:
@@ -366,24 +356,7 @@ def main_worker(gpu, args):
 
 
         elif 'resnet' in args.backbone: 
-            if '_3D' in args.backbone:
-                depth_str = args.backbone.replace('resnet', '').replace('_3D', '')
-                model_depth = int(depth_str)
-
-                # Instantiate 3D ResNet
-                backbone, num_nodes_embedding = generate_model_with_output_dim(
-                    model_depth,
-                    n_input_channels=1,  # or 3, depending on your input
-                    conv1_t_size=7,
-                    conv1_t_stride=1,
-                    no_max_pool=False,
-                    shortcut_type='B',
-                    widen_factor=1.0,
-                    n_classes=1  # dummy classifier
-                )
-                backbone.fc = nn.Identity()  # remove classification head
-            else:
-                backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
+            backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
             state_dict = torch.load(args.pretrained_path, map_location='cpu')   
             msg = backbone.load_state_dict(state_dict["backbone"], strict=True)
             print(f'loaded pretrained with msg: {msg}')
@@ -546,94 +519,130 @@ def main_worker(gpu, args):
                     else: 
                         for name_loss_i, loss_i in train_step_metrics.items():
                             train_all_metrics_dict[name_loss_i] += loss_i/len(train_loader)
-                   
+                    
             ########### VALIDATION:
             if 'deit' in args.backbone:
                 model.eval()
             else:
                 backbone.eval()
                 head.eval()
+
             with torch.no_grad():
                 y_true = []
                 y_pred = []
                 starting_epoch = True
-                for step, (img_x, img_y, tabular, original_img, samples_id)in enumerate(val_loader, start=epoch * len(val_loader)):
-                    with torch.cuda.amp.autocast():  # automaitc mixed precision
-                        if 'deit' in args.backbone: 
+                for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(val_loader, start=epoch * len(val_loader)):
+                    with torch.cuda.amp.autocast():
+                        if 'deit' in args.backbone:
                             output = model(img_x.cuda(gpu, non_blocking=True))
-                        elif ('beit' in args.backbone):
+                        elif 'beit' in args.backbone:
                             output = backbone.forward_blocks(img_x.cuda(gpu, non_blocking=True))
                             output = head(output)
                         elif 'resnet' in args.backbone:
                             output = backbone(img_x.cuda(gpu, non_blocking=True))
                             output = head(output)
-                        
+
                         tabular = tabular.to(torch.float16)
-                        if len(tabular.shape)==1:
-                            tabular = tabular.reshape(-1,1)
+                        if len(tabular.shape) == 1:
+                            tabular = tabular.reshape(-1, 1)
 
                         val_loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
 
                         with torch.no_grad():
-                            if args.task =='regression':
+                            if args.task == 'regression':
                                 if tabular_scaler_fold_i:
-                                    val_rescaled_loss = criterion(torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())), torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu())))
-                                    val_MAE_loss = criterion_MAE(torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())), torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu())))
+                                    val_rescaled_loss = criterion(
+                                        torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())),
+                                        torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu()))
+                                    )
+                                    val_MAE_loss = criterion_MAE(
+                                        torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())),
+                                        torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu()))
+                                    )
                                 else:
                                     val_rescaled_loss = val_loss
                                     val_MAE_loss = criterion_MAE(output.cpu(), tabular.cpu())
-                                
-                                val_step_metrics = {'val_loss': val_loss.item(), 'val_rescaled_loss': val_rescaled_loss.item(), 'val_MAE_loss': val_MAE_loss.item() }
+
+                                val_step_metrics = {
+                                    'val_loss': val_loss.item(),
+                                    'val_rescaled_loss': val_rescaled_loss.item(),
+                                    'val_MAE_loss': val_MAE_loss.item()
+                                }
                                 y_true.extend(list(tabular))
                                 y_pred.extend(output.cpu().numpy())
-                            elif args.task == 'classification':  
+
+                            elif args.task == 'classification':
                                 y_true.extend(list(tabular))
                                 output = sigmoid(output)
                                 y_pred.extend(output.cpu().numpy())
-                            
+
                     # compute avg loss:
                     if args.task == 'regression':
                         with torch.no_grad():
-                            if starting_epoch: 
+                            if starting_epoch:
                                 starting_epoch = False
-                                val_all_metrics_dict = val_step_metrics 
-                            else: 
+                                val_all_metrics_dict = val_step_metrics
+                            else:
                                 for name_loss_i, loss_i in val_step_metrics.items():
-                                    val_all_metrics_dict[name_loss_i] += loss_i/len(val_loader)
-                    else: 
+                                    val_all_metrics_dict[name_loss_i] += loss_i / len(val_loader)
+                    else:
                         val_all_metrics_dict = {}
 
-                ##### compute classification metrics:
+                ##### compute metrics and save predictions:
                 with torch.no_grad():
                     np.save(outputs_and_targets_validation_path / f'y_target_validation_epoch{epoch}.npy', y_true)
                     np.save(outputs_and_targets_validation_path / f'y_predicted_validation_epoch{epoch}.npy', y_pred)
 
-                    if args.task == 'classification': 
+                    if args.task == 'classification':
                         fpr, tpr, thresholds = metrics.roc_curve(np.array(y_true), np.array(y_pred), pos_label=1)
                         auc = metrics.auc(fpr, tpr)
                         val_all_metrics_dict['auc'] = auc
                         pr_auc = metrics.average_precision_score(np.array(y_true), np.array(y_pred))
                         val_all_metrics_dict['pr_auc'] = pr_auc
-                        
+
+                    elif args.task == 'regression':
+                        # Load from .npy and compute full-set MAE
+                        y_true_np = np.load(outputs_and_targets_validation_path / f'y_target_validation_epoch{epoch}.npy', allow_pickle=True)
+                        y_pred_np = np.load(outputs_and_targets_validation_path / f'y_predicted_validation_epoch{epoch}.npy', allow_pickle=True)
+
+                        if isinstance(y_true_np[0], torch.Tensor):
+                            y_true_np = np.stack([t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in y_true_np])
+                        if isinstance(y_pred_np[0], torch.Tensor):
+                            y_pred_np = np.stack([t.cpu().numpy() if isinstance(t, torch.Tensor) else t for t in y_pred_np])
+
+                        y_true_np = np.array(y_true_np).reshape(-1, 1)
+                        y_pred_np = np.array(y_pred_np).reshape(-1, 1)
+
+                        if tabular_scaler_fold_i:
+                            y_true_rescaled = tabular_scaler_fold_i.inverse_transform(y_true_np)
+                            y_pred_rescaled = tabular_scaler_fold_i.inverse_transform(y_pred_np)
+                        else:
+                            y_true_rescaled = y_true_np
+                            y_pred_rescaled = y_pred_np
+
+                        val_MAE_loss_from_files = np.mean(np.abs(y_true_rescaled - y_pred_rescaled))
+                        val_all_metrics_dict['val_MAE_loss_from_files'] = val_MAE_loss_from_files
+
             with torch.no_grad():
                 all_stats = dict(
                     epoch=epoch,
                     time=int(time.time() - start_time),
                     lr_backbone=args.lr_backbone,
                     lr_head=args.lr_head,
-                    day_time = str(datetime.now()),
+                    day_time=str(datetime.now()),
                 )
 
                 for metric_name, metric in train_all_metrics_dict.items():
-                    all_stats[metric_name] = metric
+                    all_stats[metric_name] = float(metric) if isinstance(metric, (np.floating, torch.Tensor)) else metric
 
                 for metric_name, metric in val_all_metrics_dict.items():
-                    all_stats[metric_name] = metric
+                    all_stats[metric_name] = float(metric) if isinstance(metric, (np.floating, torch.Tensor)) else metric
+
 
                 print(json.dumps(all_stats), file=all_stats_file)
-                df_train_metrics = general_utils.update_df_metrics(df_train_metrics, epoch, train_all_metrics_dict, save_df_train_path, plot_df_train_path, 'finetuning' )
-                df_val_metrics = general_utils.update_df_metrics(df_val_metrics, epoch, val_all_metrics_dict, save_df_val_path, plot_df_val_path, 'val' )
-                            
+                df_train_metrics = general_utils.update_df_metrics(df_train_metrics, epoch, train_all_metrics_dict, save_df_train_path, plot_df_train_path, 'finetuning')
+                df_val_metrics = general_utils.update_df_metrics(df_val_metrics, epoch, val_all_metrics_dict, save_df_val_path, plot_df_val_path, 'val')
+
                 # Check for early stopping
                 early_stopping(train_all_metrics_dict['fine_tuning_loss'], epoch = epoch)
                 if early_stopping.early_stop:
@@ -641,49 +650,6 @@ def main_worker(gpu, args):
                     break
             
         (args.exp_dir / "finetuning_ablation_done.txt").touch()
-
-
-import torchio as tio
-from torchvision import transforms
-
-class TrainTransform3D:
-    def __init__(self, args, train_set_mean, train_set_std):
-        remove_pixels = int((256 - args.resize_shape) / 2)
-
-        self.transform = tio.Compose([
-            tio.Crop((remove_pixels, remove_pixels, 0)),  # (W, H, D)
-            tio.RandomAffine(
-                scales=(1.0, 1.0),
-                degrees=(10, 10, 10),  # Rotate up to ±10° on all axes
-                translation=(-5, 5),  # Translate randomly in each direction
-                isotropic=True,
-                default_pad_value='minimum'
-            ),
-        ])
-
-    def __call__(self, volume_tensor):
-        # volume_tensor shape: (1, D, H, W) or (C, D, H, W)
-        subject = tio.Subject(
-            mri=tio.ScalarImage(tensor=volume_tensor)
-        )
-        transformed = self.transform(subject)
-        return transformed.mri.data  # returns a tensor of shape (1, D, H, W)
-
-
-class ValTransform3D:
-    def __init__(self, args, train_set_mean, train_set_std):
-        remove_pixels = int((256 - args.resize_shape) / 2)
-
-        self.transform = tio.Compose([
-            tio.Crop((remove_pixels, remove_pixels, 0)),
-        ])
-
-    def __call__(self, volume_tensor):
-        subject = tio.Subject(
-            mri=tio.ScalarImage(tensor=volume_tensor)
-        )
-        transformed = self.transform(subject)
-        return transformed.mri.data
 
 
 # FINE-TUNING DATA AUGMENTATION:

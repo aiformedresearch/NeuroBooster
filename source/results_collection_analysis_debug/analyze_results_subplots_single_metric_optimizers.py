@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # --- Configuration ---
     # Define your experiment root folders here.
     experiment_root_folder1 = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_long')
-    experiment_root_folder2 = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_ADAMW_short')
+    experiment_root_folder2 = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_06_11_ADAMW_short')
     experiment_root_folder3 = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_short')
 
     # List of experiment root folders to compare
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         raw_comparison_df['Std'] = pd.to_numeric(raw_comparison_df['Std'], errors='coerce').fillna(0) # Fill NaN std with 0 for display
 
         # Define the output directory
-        output_dir = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/COMPARISON_RESULTS')
+        output_dir = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/COMPARISON_RESULTS_ADAMWupdated')
         output_dir.mkdir(parents=True, exist_ok=True)
 
         for labels_percentage in labels_percentage_list:
