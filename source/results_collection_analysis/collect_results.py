@@ -4,10 +4,10 @@ import pandas as pd
 #python MAIN/source/results_collection_analysis/collect_results.py
 
 seeds = range(5)
-paradigms = ['supervised', 'medbooster', 'simim', 'vicreg', 'mae']
+paradigms = ['supervised', 'medbooster']
 folds = range(1)
 labels_percentage_list= [100, 1]
-source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_long')
+source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_07_02_LARS_long_no_augm_resnet34')
 destination_folder_path = source_folder_path_all_experiments/ f'results_definitive/' 
 os.makedirs(destination_folder_path, exist_ok=True)
 

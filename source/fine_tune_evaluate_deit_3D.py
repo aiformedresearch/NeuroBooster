@@ -9,6 +9,9 @@ import json
 from sklearn import metrics
 from datetime import datetime
 import numpy as np
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import os
 
 # utils
 import utils.general_utils as general_utils
@@ -160,6 +163,7 @@ def get_arguments():
 
     # others
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument('--local_rank', type=int, default=0, help='local rank passed from torchrun')
 
 
     return parser
@@ -169,9 +173,44 @@ def main(args):
 
 
 def main_worker(gpu, args):
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    args.local_rank = local_rank  # if you want to keep it in args
 
-    gpu = torch.device(args.device)
+    print(f"[DEBUG] args.local_rank = {args.local_rank}")
+    print(f"[DEBUG] os.environ['LOCAL_RANK'] = {os.environ.get('LOCAL_RANK')}")
+
+    # Inizializza il processo distribuito
+    if args.local_rank == 0:
+        print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+
+    # Init DDP (assumes torchrun sets local_rank)
+    dist.init_process_group(backend='nccl')
+
+    # Set correct logical CUDA device
+    torch.cuda.set_device(local_rank)
+    
+    device = torch.device(f"cuda:{local_rank}")
+
+
+    # Define GPU device using logical index
+    gpu = torch.device(f"cuda:{local_rank}")
     args.gpu = gpu
+
+    # Optional debug: check actual physical device
+    print(f"[Rank {local_rank}] mapped to CUDA device {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
+
+
+    print(f"[Rank {args.local_rank}] CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+    print(f"[Rank {args.local_rank}] Using CUDA device index = {args.local_rank}")
+    print(f"[Rank {args.local_rank}] torch.cuda.device_count() = {torch.cuda.device_count()}")
+    print(f"[Rank {args.local_rank}] torch.cuda.current_device() = {torch.cuda.current_device()}")
+    print(f"[Rank {args.local_rank}] torch.cuda.get_device_name() = {torch.cuda.get_device_name(torch.cuda.current_device())}")
+
+    if dist.get_rank() == 0:
+        print("✅ Rank 0 setup done.")
+    elif dist.get_rank() == 1:
+        print("✅ Rank 1 setup done.")
+
     args.exp_dir_original = args.exp_dir
     args.num_classes = 1
     args.pre_training_paradigm = args.paradigm
@@ -287,7 +326,8 @@ def main_worker(gpu, args):
                 model = deit_vision_transformer.__dict__[args.mae_model](
                         num_classes=args.num_classes,
                         global_pool=False,
-                    )
+                    )                
+                
 
                 num_nodes_embedding = model.head.in_features
 
@@ -382,6 +422,7 @@ def main_worker(gpu, args):
                     n_classes=1  # dummy classifier
                 )
                 backbone.fc = nn.Identity()  # remove classification head
+                backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[local_rank])
             else:
                 backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
             state_dict = torch.load(args.pretrained_path, map_location='cpu')   
@@ -400,6 +441,22 @@ def main_worker(gpu, args):
         head.weight.data.normal_(mean=0.0, std=0.01)
         head.bias.data.zero_()
         head.requires_grad_(True)
+
+        class FrozenBackboneModel(nn.Module):
+            def __init__(self, backbone, head):
+                super().__init__()
+                self.backbone = backbone
+                self.head = head
+                for param in self.backbone.parameters():
+                    param.requires_grad = False
+
+            def forward(self, x):
+                with torch.no_grad():
+                    x = self.backbone(x)
+                return self.head(x)
+
+        model = FrozenBackboneModel(backbone, head).to(args.gpu)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
 
         param_groups = [dict(params=head.parameters(), lr=args.lr_head)]
 
@@ -505,15 +562,17 @@ def main_worker(gpu, args):
                         output = head(output)
 
                     elif 'resnet' in args.backbone:
-                        if args.freeze_backbone:
-                            with torch.no_grad():
-                                if epoch == 0 and step == 0 and fold == 0: print('backbone freezed')
-                                backbone.requires_grad_(False)
-                                output = backbone(img_x.cuda(gpu, non_blocking=True))
-                        else:
-                            backbone.requires_grad_(True)
-                            output = backbone(img_x.cuda(gpu, non_blocking=True))
-                        output = head(output)
+                        # if args.freeze_backbone:
+                        #     with torch.no_grad():
+                        #         if epoch == 0 and step == 0 and fold == 0: print('backbone freezed')
+                        #         backbone.requires_grad_(False)
+                        #         output = backbone(img_x.cuda(gpu, non_blocking=True))
+                        # else:
+                        #     backbone.requires_grad_(True)
+                        #     output = backbone(img_x.cuda(gpu, non_blocking=True))
+                        # output = head(output)
+                        output = model(img_x.cuda(gpu, non_blocking=True))
+
 
                     tabular = tabular.to(torch.float16)
                     if len(tabular.shape)==1:
@@ -565,8 +624,9 @@ def main_worker(gpu, args):
                             output = backbone.forward_blocks(img_x.cuda(gpu, non_blocking=True))
                             output = head(output)
                         elif 'resnet' in args.backbone:
-                            output = backbone(img_x.cuda(gpu, non_blocking=True))
-                            output = head(output)
+                            # output = backbone(img_x.cuda(gpu, non_blocking=True))
+                            # output = head(output)
+                            output = model(img_x.cuda(gpu, non_blocking=True))
                         
                         tabular = tabular.to(torch.float16)
                         if len(tabular.shape)==1:
@@ -641,6 +701,7 @@ def main_worker(gpu, args):
                     break
             
         (args.exp_dir / "finetuning_ablation_done.txt").touch()
+        dist.destroy_process_group()
 
 
 import torchio as tio

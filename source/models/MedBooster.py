@@ -6,7 +6,7 @@ from models.backbones.beit_vision_transformer import beit_encoder
 from models.backbones import deit_vision_transformer, deit_vision_transformer_no_masking_no_decoder
 import torch
 from torch import nn
-from models.VICReg import Projector
+from models.VICReg import Projector, Projector_3D
 # from models import MAE_finetune_model # this has learnable pos embedding
 
 class init_medbooster_3D(nn.Module):
@@ -34,7 +34,7 @@ class init_medbooster_3D(nn.Module):
                 n_classes=1  # dummy classifier
             )
             self.backbone.fc = nn.Identity()  # remove classification head
-            self.head = Projector(args, num_nodes_embedding)
+            self.head = Projector_3D(args, num_nodes_embedding)
 
         else:
             backbone, num_nodes_embedding = resnet.__dict__[args.backbone](

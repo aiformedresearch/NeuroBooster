@@ -108,7 +108,23 @@ def Projector(args, embedding):
     for i in range(len(f) - 2):
         layers.append(nn.Linear(f[i], f[i + 1]))
         layers.append(nn.BatchNorm1d(f[i + 1]))
-        layers.append(nn.ReLU(True))
+        layers.append(nn.ReLU(inplace=False))
     layers.append(nn.Linear(f[-2], f[-1], bias=False))
+    return nn.Sequential(*layers)
+
+def Projector_3D(args, embedding):
+    mlp_spec = f"{embedding}-{args.projector}"
+    layers = []
+    f = list(map(int, mlp_spec.split("-")))
+    for i in range(len(f) - 2):
+        layers.append(nn.Linear(f[i], f[i + 1]))
+        # Replace BatchNorm1d with LayerNorm for better stability with small batch sizes and AMP
+        if (f[i + 1] > 1):
+            layers.append(nn.LayerNorm(f[i + 1]))
+        layers.append(nn.ReLU(inplace=False))
+    # Final linear layer with explicit initialization
+    linear_final = nn.Linear(f[-2], f[-1], bias=True)
+    nn.init.xavier_uniform_(linear_final.weight)
+    layers.append(linear_final)
     return nn.Sequential(*layers)
 

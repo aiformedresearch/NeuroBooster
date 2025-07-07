@@ -7,7 +7,6 @@ import time
 import json
 import copy
 from datetime import datetime
-import torch.distributed as dist
 
 # utils
 import utils.general_utils as general_utils
@@ -18,8 +17,9 @@ import math
 from utils.model_utils import NativeScalerWithGradNormCount as NativeScaler
 
 # models
-from models.VICReg import init_vicreg, init_vicreg_deit, init_vicreg_3D
-from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
+from models.VICReg import init_vicreg, init_vicreg_deit
+from models.SimCLR import init_simclr
+from models.MedBooster import init_medbooster, init_medbooster_deit
 from models.SimMIM import init_simim
 from models import MAE_pretrain_model
 
@@ -29,11 +29,9 @@ from data_augmentations import simim_augmentations, mae_augmentations
 
 # losses
 from losses.VICReg_loss import vicreg_loss
+from losses.SimCLR_loss import simclr_loss
 from losses.SimMIM_loss import simim_loss
 from losses.MedBooster_loss import medbooster_loss
-
-import torch.multiprocessing as mp
-import os
 
 
 def str2bool(v):
@@ -70,6 +68,8 @@ def get_arguments():
     parser.add_argument("--vicreg_sim_coeff", type=float, default=25.0, help='vicreg, Invariance regularization loss coefficient')
     parser.add_argument("--vicreg_std_coeff", type=float, default=25.0, help='vicreg, Variance regularization loss coefficient')
     parser.add_argument("--vicreg_cov_coeff", type=float, default=1.0, help='vicreg, Covariance regularization loss coefficient')
+
+    parser.add_argument("--simclr_temperature", type=float, default=0.5, help='vicreg, Covariance regularization loss coefficient')
     
     parser.add_argument("--simim_bottleneck", type = int, default =1, help='SimMIM model param: bottleneck')
     parser.add_argument("--simim_depth", type = int, default =12, help='SimMIM model param: depth')
@@ -128,7 +128,6 @@ def get_arguments():
     parser.add_argument('--comment', default='', type=str, help='leave a comment about the experiment')
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument('--local_rank', type=int, default=0, help='local rank passed from torchrun')
 
     return parser
 
@@ -136,49 +135,8 @@ def main(args):
     
     print(f'paradigm: {args.paradigm}')
     ######### setup:
-    #gpu = torch.device(args.device)
-
-
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    args.local_rank = local_rank  # if you want to keep it in args
-
-    print(f"[DEBUG] args.local_rank = {args.local_rank}")
-    print(f"[DEBUG] os.environ['LOCAL_RANK'] = {os.environ.get('LOCAL_RANK')}")
-
-    # Inizializza il processo distribuito
-    if args.local_rank == 0:
-        print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
-
-    # Init DDP (assumes torchrun sets local_rank)
-    dist.init_process_group(backend='nccl')
-
-    # Set correct logical CUDA device
-    torch.cuda.set_device(local_rank)
-    
-    device = torch.device(f"cuda:{local_rank}")
-
-    # Define GPU device using logical index
-    gpu = torch.device(f"cuda:{local_rank}")
+    gpu = torch.device(args.device)
     args.gpu = gpu
-
-    # Optional debug: check actual physical device
-    print(f"[Rank {local_rank}] mapped to CUDA device {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
-
-
-    print(f"[Rank {args.local_rank}] CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES')}")
-    print(f"[Rank {args.local_rank}] Using CUDA device index = {args.local_rank}")
-    print(f"[Rank {args.local_rank}] torch.cuda.device_count() = {torch.cuda.device_count()}")
-    print(f"[Rank {args.local_rank}] torch.cuda.current_device() = {torch.cuda.current_device()}")
-    print(f"[Rank {args.local_rank}] torch.cuda.get_device_name() = {torch.cuda.get_device_name(torch.cuda.current_device())}")
-
-    if dist.get_rank() == 0:
-        print("✅ Rank 0 setup done.")
-    elif dist.get_rank() == 1:
-        print("✅ Rank 1 setup done.")
-
-    #gpu = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #args.gpu = gpu 
-
     args.exp_dir_original = args.exp_dir
     args.workflow_step = 'pretraining' # needed because we call some functions both in the script for pretraining and finetuning
 
@@ -224,16 +182,15 @@ def main(args):
                           data_augmentations.vicreg_augmentations.TrainTransform_Crop, # default transform
                           ]
 
+        elif args.paradigm == 'simclr':
+            transforms = [data_augmentations.vicreg_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
+                          data_augmentations.vicreg_augmentations.TrainTransform_Crop, # default transform
+                          ]
+
         elif (args.paradigm == 'supervised') or (args.paradigm == 'medbooster'):
-            if '3D' in args.backbone:
-                print('3D data augm')
-                transforms = [data_augmentations.medbooster_augmentations_3D.TrainTransform_Crop_Affine_Noise_3D, # augmentation
-                            data_augmentations.medbooster_augmentations_3D.TrainTransform_Crop_3D, # default transform
-                           ]
-            else:
-                transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
-                            data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
-                            ]
+            transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
+                          data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
+                          ]
 
         elif (args.paradigm == 'mae'):
             #transforms = [data_augmentations.neuro_booster_augmentations.TrainTransform_Resize_Norm]
@@ -247,11 +204,7 @@ def main(args):
         else:
             print('paradigm not implemented')
 
-        if '3D' in args.backbone:
-            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, transforms)
-
-        else:
-            train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, transforms)
+        train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, transforms)
 
         ################## MODEL ARCHITECTURE:
         print('INITIALIZING MODEL')
@@ -272,16 +225,10 @@ def main(args):
                 model = init_medbooster_deit(args).cuda(gpu)
                 print(model)
             else:
-                if '_3D' in args.backbone:
-                    model = init_medbooster_3D(args).to(gpu)
-                    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+                model = init_medbooster(args).cuda(gpu)
 
-                else:
-                    model = init_medbooster(args).cuda(gpu)
-
-            #model.head = nn.Sequential(model.head)
-            model.module.head = nn.Sequential(model.module.head)
-
+            model.head = nn.Sequential(model.head)
+            
             if args.task == 'regression':
                 print('regression loss')
                 criterion = medbooster_loss().cuda(gpu)
@@ -306,11 +253,12 @@ def main(args):
                 model = init_vicreg_deit(args).cuda(gpu)
                 print(model)
             else:
-                if '_3D' in args.backbone:
-                    model = init_vicreg_3D(args).cuda(gpu)
-                else:
-                    model = init_vicreg(args).cuda(gpu)
+                model = init_vicreg(args).cuda(gpu)
             criterion = vicreg_loss(args).cuda(gpu)
+
+        elif args.paradigm =='simclr':
+            model = init_simclr(args).cuda(gpu)
+            criterion = simclr_loss(args).cuda(gpu)
 
         elif args.paradigm == 'mae':
             model = MAE_pretrain_model.__dict__[args.mae_model](norm_pix_loss=args.mae_norm_pix_loss)
@@ -319,55 +267,28 @@ def main(args):
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
 
-        # if 'deit' in args.backbone:
-        #     # ====== BEGIN MAE-DERIVED CODE ======
-        #     # Adapted from https://github.com/facebookresearch/mae
-        #     # Licensed under CC BY-NC 4.0
-        #     print(args.mae_lr)
-        #     if args.mae_lr is None:  # only base_lr is specified
-        #         args.accum_iter = 1
-        #         eff_batch_size = args.batch_size * args.accum_iter * 1 #misc.get_world_size() =1
-        #         args.mae_lr = args.mae_blr * eff_batch_size / 256
-        #     param_groups = optim_factory.add_weight_decay(model, args.mae_weight_decay)
-        #     optimizer = torch.optim.AdamW(param_groups, lr=args.mae_lr, betas=(0.9, 0.95))
-        #     print(optimizer)
-        #     loss_scaler = NativeScaler()
-        #     # ====== END MAE-DERIVED CODE ======
-
         # else:
         param_groups = model.parameters()
 
-        from torch.utils.data.distributed import DistributedSampler
-
         ######### OPTIMIZATION:
-        drop_last = len(train_dataset) > args.batch_size
-        if drop_last:
+        #### loader setup
+        drop_last=False
+        if len(train_dataset)>args.batch_size:
             print('dropping last batches')
-
-        # Distributed sampler for multi-GPU
-        sampler = DistributedSampler(
-            train_dataset,
-            num_replicas=torch.distributed.get_world_size(),
-            rank=torch.distributed.get_rank(),
-            shuffle=True,
-            seed=args.seed
-        )
-
+            drop_last = True
         g = torch.Generator()
         g.manual_seed(args.seed)
-
         loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             pin_memory=True,
-            sampler=sampler,             # ✅ use sampler instead of shuffle
-            shuffle=False,               # ❌ shuffle must be False when sampler is set
+            sampler=None,
+            shuffle=True,
             worker_init_fn=general_utils.seed_worker,
             generator=g,
             drop_last=drop_last,
         )
-
 
         # # optimizer
         # if ('beit' in args.backbone) or ('deit' in args.backbone):
@@ -402,31 +323,29 @@ def main(args):
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
             num_steps = len(loader)
 
-        
-        if dist.get_rank() == 0:
-            # SAVE MODEL ARCHITECTURE AND OPTIMIZER:
-            for param_tensor in model.state_dict():
-                print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file = model_info_file)
+        # SAVE MODEL ARCHITECTURE AND OPTIMIZER:
+        for param_tensor in model.state_dict():
+            print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file = model_info_file)
 
-            # Print optimizer's state_dict
-            for var_name in optimizer.state_dict():
-                print(var_name, "\t", optimizer.state_dict()[var_name], file = model_info_file)
+        # Print optimizer's state_dict
+        for var_name in optimizer.state_dict():
+            print(var_name, "\t", optimizer.state_dict()[var_name], file = model_info_file)
 
-            num_params, total_size_MB = general_utils.compute_model_size(model)
-            print(f"Number of parameters: {num_params}", file = model_info_file)
-            print(f"Total size (MB): {total_size_MB:.2f} MB", file = model_info_file)
+        num_params, total_size_MB = general_utils.compute_model_size(model)
+        print(f"Number of parameters: {num_params}", file = model_info_file)
+        print(f"Total size (MB): {total_size_MB:.2f} MB", file = model_info_file)
 
         ############ START PRE-TRAINING
         start_epoch = 0
         start_time = time.time()
-        scaler = torch.cuda.amp.GradScaler()
+        scaler = torch.cuda.amp.GradScaler() # to deal with underflow of gradients when using autocast
         df_train_metrics = {}
         max_gpu_usage = 0
         model.requires_grad_(True)
-        #model = model.cuda(gpu)
+        model = model.cuda(gpu)
         best_loss = 1e10
         accum_iter = 1                
-
+        
         if fold == 0:
             arg_dict = vars(args)
             with open(args.exp_dir/'args_pretraining.txt', "w") as file:
@@ -435,221 +354,189 @@ def main(args):
                         file.write(f"{key}: {value}\n")
 
         early_stopping = EarlyStopping(patience=args.patience, min_epochs = args.min_epochs)
-        if dist.get_rank() == 0:
-            print(f"Per-GPU batch size: {args.batch_size}, Total effective batch size: {args.batch_size * dist.get_world_size()}")
-
-        torch.autograd.set_detect_anomaly(True)
-
-        print('model.head:')
-        for i, layer in enumerate(model.module.head):
-            print(f"Layer {i}: {layer}")
-
 
         for epoch in range(start_epoch, args.epochs):
-            sampler.set_epoch(epoch)
             starting_epoch = True
-            for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start=epoch * len(loader)):
+
+            # if 'deit' in args.backbone:
+            #     optimizer.zero_grad()
+
+            for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
+                img_x = img_x.to(torch.float32)  
+                img_y = img_y.to(torch.float32) 
+
+                #if not('deit' in args.backbone):
                 optimizer.zero_grad()
 
-                try:
-                    with torch.cuda.amp.autocast():
-                        img_x = img_x.to(torch.float32).cuda(gpu, non_blocking=True)
-                        img_y = img_y.to(torch.float32).cuda(gpu, non_blocking=True)
+                with torch.cuda.amp.autocast():
+                    if args.paradigm == 'mae':
+                        loss, _, _ = model(img_x.cuda(gpu,non_blocking=True), mask_ratio=args.mae_mask_ratio)
+                        step_metrics = {'loss':loss.item()}
+                    
+                    elif args.paradigm == 'simim':
+                        img_x = img_x.cuda(gpu,non_blocking=True)
+                        mask = img_y.cuda(gpu,non_blocking=True)
+                        img_rec, mask = model(img_x, mask)
+                        loss = criterion(img_x, img_rec, mask, model.in_chans, model.patch_size)
+                        step_metrics = {'loss':loss.item()}
+                    
+                    elif args.paradigm == 'vicreg':
+                        z_x,z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
+                        loss, sim_loss, std_loss, cov_loss = criterion(z_x,z_y)
+                        step_metrics = {'loss': loss.item(), 'sim_loss': sim_loss.item(), 'std_loss':std_loss.item(), 'cov_loss':cov_loss.item()}
 
-                        # Basic input check
-                        if torch.isnan(img_x).any() or torch.isinf(img_x).any():
-                            print("NaN or Inf in input image:", img_x)
-                            continue
+                    elif args.paradigm == 'simclr':
+                        z_x, z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
+                        loss, pos_sim, avg_sim = criterion(z_x, z_y)
+                        step_metrics = {
+                            'loss': loss.item(),
+                            'pos_sim': pos_sim.item(),
+                            'avg_sim': avg_sim.item()
+                        }
 
-                        if args.paradigm == 'mae':
-                            loss, _, _ = model(img_x, mask_ratio=args.mae_mask_ratio)
-                            step_metrics = {'loss': loss.item()}
 
-                        elif args.paradigm == 'simim':
-                            mask = img_y
-                            img_rec, mask = model(img_x, mask)
-                            loss = criterion(img_x, img_rec, mask, model.in_chans, model.patch_size)
-                            step_metrics = {'loss': loss.item()}
-
-                        elif args.paradigm == 'vicreg':
-                            z_x, z_y = model.forward(img_x, img_y)
-                            loss, sim_loss, std_loss, cov_loss = criterion(z_x, z_y)
-                            step_metrics = {
-                                'loss': loss.item(),
-                                'sim_loss': sim_loss.item(),
-                                'std_loss': std_loss.item(),
-                                'cov_loss': cov_loss.item()
-                            }
-
-                        elif args.paradigm in ['medbooster', 'supervised']:
-                            output = model.forward(img_x)
-                            if torch.isnan(output).any() or torch.isinf(output).any():
-                                print("NaN or Inf in model output")
-                                continue
-
-                            #tabular = tabular.to(torch.float16).cuda(gpu, non_blocking=True)
-                            tabular = tabular.to(torch.float32).cuda(gpu, non_blocking=True)
-
-                            if len(tabular.shape) == 1:
-                                tabular = tabular.view(-1, 1)
-
-                            if torch.isnan(tabular).any() or torch.isinf(tabular).any():
-                                print("NaN or Inf in tabular input")
-                                continue
-
-                            loss = criterion(output, tabular)
-
-                            if torch.isnan(loss).any() or torch.isinf(loss).any():
-                                print("NaN or Inf in loss computation")
-                                continue
-
+                    elif (args.paradigm == 'medbooster') or (args.paradigm == 'supervised') :
+                        output = model.forward(img_x.cuda(gpu,non_blocking=True))
+                        tabular = tabular.to(torch.float16)
+                        if len(tabular.shape)==1:
+                            tabular = tabular.reshape(-1,1)
+                        loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
+                        with torch.no_grad():
                             if args.task == 'regression':
-                                with torch.no_grad():
-                                    if tabular_scaler_fold_i:
-                                        y_pred_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu()))
-                                        y_true_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu()))
-                                        rescaled_loss = criterion(
-                                            y_pred_rescaled.cuda(gpu),
-                                            y_true_rescaled.cuda(gpu)
-                                        )
-                                    else:
-                                        rescaled_loss = loss
-                                step_metrics = {
-                                    'loss': loss.item(),
-                                    'rescaled_loss': rescaled_loss.item()
-                                }
+                                if tabular_scaler_fold_i:
+                                    rescaled_loss = criterion(torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())).cuda(gpu,non_blocking=True), torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu())).cuda(gpu,non_blocking=True))
+                                else:
+                                    rescaled_loss = loss
+                                
+                                step_metrics = {'loss':loss.item(), 'rescaled_loss':rescaled_loss.item()}
                             else:
-                                step_metrics = {'loss': loss.item()}
-
-                    # Learning rate update
+                                step_metrics = {'loss':loss.item()}
+                    
+                if True: #not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
                     lr = adjust_learning_rate(args, optimizer, loader, step)
 
-                    if torch.isnan(loss).any() or torch.isinf(loss).any():
-                        print("Loss is NaN or Inf before backward")
-                        continue
+                # if 'deit' in args.backbone:
+                #     # ====== BEGIN MAE-DERIVED CODE ======
+                #     # Adapted from https://github.com/facebookresearch/mae
+                #     # Licensed under CC BY-NC 4.0
 
-                    # Backward pass
-                    scaler.scale(loss).backward()
+                #     # per iteration (instead of per epoch) lr scheduler
+                #     adjust_learning_rate_mae(optimizer, step / len(loader) + epoch, args)
+                    
+                #     #samples = samples.to(device, non_blocking=True)
+                #     loss_value = loss.item()
 
-                    # Check gradients
-                    for name, param in model.named_parameters():
-                        if param.grad is not None:
-                            if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
-                                print(f"NaN or Inf in GRADIENT: {name}")
-                                raise RuntimeError("Invalid gradient")
+                #     if not math.isfinite(loss_value):
+                #         print("Loss is {}, stopping training".format(loss_value))
+                #         sys.exit(1)
 
-                    # Unscale + clip gradients
-                    scaler.unscale_(optimizer)
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                #     lr = optimizer.param_groups[0]["lr"]
+                #     step_metrics = {'loss':loss.item()}
+                #     # ====== END MAE-DERIVED CODE ======
 
-                    # Optimizer step
-                    scaler.step(optimizer)
-                    scaler.update()
+                #     loss_scaler(loss, optimizer, parameters=model.parameters(), update_grad=True)
+                #     optimizer.zero_grad()
+                #     # ====== END MAE-DERIVED CODE ======
+                
+                # else:
+                scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
+                # if ('deit' in args.backbone) or ('beit' in args.backbone):
+                #     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                #     if False:
+                #         lr_scheduler.step_update(epoch * num_steps + step)
+                scaler.step(optimizer)
+                scaler.update()
 
-                    # Metrics aggregation
-                    with torch.no_grad():
-                        if starting_epoch:
-                            starting_epoch = False
-                            train_all_metrics_dict = step_metrics
-                        else:
-                            for name_loss_i, loss_i in step_metrics.items():
-                                train_all_metrics_dict[name_loss_i] += loss_i / len(loader)
-
-                except Exception as e:
-                    print(f"‼️ Skipping step due to error: {e}")
-                    # exit(1)  # Uncomment this if you want to crash on error instead
-                    continue
-
+                # compute avg loss:
+                with torch.no_grad():
+                    if starting_epoch: 
+                        starting_epoch = False
+                        train_all_metrics_dict = step_metrics   
+                    else: 
+                        for name_loss_i, loss_i in step_metrics.items():
+                            train_all_metrics_dict[name_loss_i] += loss_i/len(loader)
+            
+            if starting_epoch:
+                print('not enough samples:', len(loader))
+                break
 
             ############## PLOT AND SAVE METRICS AT THE END OF EACH EPOCH
-            
-            if dist.get_rank() == 0:
-                with torch.no_grad():
-                    all_stats = dict(
-                        epoch=epoch,
-                        time=int(time.time() - start_time),
-                        base_lr=args.base_lr,
-                        lr=lr,
-                        day_time=str(datetime.now()),
-                    )    
+            with torch.no_grad():
+                all_stats = dict(
+                epoch=epoch,
+                time=int(time.time() - start_time),
+                base_lr = args.base_lr,
+                lr=lr,
+                day_time = str(datetime.now()),
+                )    
 
-                    for metric_name, metric in train_all_metrics_dict.items():
-                        all_stats[metric_name] = metric
+                for metric_name, metric in train_all_metrics_dict.items():
+                    all_stats[metric_name] = metric
 
-                    print(all_stats)
-                    print(json.dumps(all_stats), file=all_stats_file)        
-                    df_train_metrics = general_utils.update_df_metrics(
-                        df_train_metrics, epoch, train_all_metrics_dict,
-                        save_df_train_path, plot_df_train_path, 'train'
-                    )
-
-                    if loss < best_loss:
-                        best_loss = loss
-                        best_state = create_dict_state(args, model, optimizer, epoch)
+                print(all_stats)
+                print(json.dumps(all_stats), file=all_stats_file)        
+                df_train_metrics = general_utils.update_df_metrics(df_train_metrics, epoch, train_all_metrics_dict, save_df_train_path, plot_df_train_path, 'train' )
                     
-                    # Check for early stopping
-                    early_stopping(train_all_metrics_dict['loss'], epoch=epoch)
+                if loss < best_loss:
+                    best_loss = loss
+                    best_state = create_dict_state(args, model, optimizer, epoch)
                 
-                    if early_stopping.early_stop:
-                        last_state = create_dict_state(args, model, optimizer, epoch)
-                        torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
-                        torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
-                        print(f"EARLY STOPPAGE, epoch {epoch}")
-                        break
-                        
-            if epoch % 5 == 0:
-                torch.cuda.empty_cache()
-
-        if dist.get_rank() == 0:
-            print('No early stoppage, saving model to path:', args.exp_dir / f"pretrained.pth")
-            last_state = create_dict_state(args, model, optimizer, epoch)
-            torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
-            torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
-            (args.exp_dir / "pretraining_done.txt").touch()
-
-    dist.destroy_process_group()
+                # Check for early stopping
+                early_stopping(train_all_metrics_dict['loss'], epoch = epoch)
+            
+                if early_stopping.early_stop:
+                    last_state = create_dict_state(args, model, optimizer, epoch)
+                    torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
+                    torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
+                    print(f"EARLY STOPPAGE, epoch {epoch}")
+                    break
+    
+        print('No early stoppage, saving model to path:', args.exp_dir / f"pretrained.pth")
+        last_state = create_dict_state(args, model, optimizer, epoch)
+        torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
+        torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
+        (args.exp_dir / "pretraining_done.txt").touch()
 
 
-def create_dict_state(args, model, optimizer, epoch):     
-    if dist.get_rank() == 0:   
-        # Helper to unwrap model if needed
-        base_model = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
+def create_dict_state(args, model, optimizer, epoch):        
+    if (args.paradigm in ['simim']) or ('beit' in args.backbone) :
+        state = dict(
+        epoch=epoch + 1,
+        model=copy.deepcopy(model.state_dict()),
+        optimizer=copy.deepcopy(optimizer.state_dict()),
+        )
+    elif (args.paradigm in ['supervised','medbooster']) and ('resnet' in args.backbone):
+        state = dict(
+        epoch=epoch + 1,
+        backbone=copy.deepcopy(model.backbone.state_dict()),
+        head=copy.deepcopy(model.head.state_dict()),
+        optimizer=copy.deepcopy(optimizer.state_dict()),
+        )
 
-        if (args.paradigm in ['simim']) or ('beit' in args.backbone):
-            state = dict(
-                epoch=epoch + 1,
-                model=copy.deepcopy(base_model.state_dict()),
-                optimizer=copy.deepcopy(optimizer.state_dict()),
-            )
-        elif (args.paradigm in ['supervised','medbooster']) and ('resnet' in args.backbone):
-            state = dict(
-                epoch=epoch + 1,
-                backbone=copy.deepcopy(base_model.backbone.state_dict()),
-                head=copy.deepcopy(base_model.head.state_dict()),
-                optimizer=copy.deepcopy(optimizer.state_dict()),
-            )
-        elif (args.paradigm in ['vicreg']) and ('resnet' in args.backbone):
-            state = dict(
-                epoch=epoch + 1,
-                backbone=copy.deepcopy(base_model.encoder.state_dict()),
-                head=copy.deepcopy(base_model.projector.state_dict()),
-                optimizer=copy.deepcopy(optimizer.state_dict()),
-            )
-        elif 'deit' in args.backbone:
-            state = dict(
-                epoch=epoch + 1,
-                model=copy.deepcopy(base_model.state_dict()),
-                optimizer=optimizer.state_dict(),
-            )   
-        return state
+    elif (args.paradigm in ['vicreg', 'simclr']) and ('resnet' in args.backbone):
+        state = dict(
+        epoch=epoch + 1,
+        backbone=copy.deepcopy(model.encoder.state_dict()),
+        head=copy.deepcopy(model.projector.state_dict()),
+        optimizer=copy.deepcopy(optimizer.state_dict()),
+        )           
 
+    elif 'deit' in args.backbone:
+        state = dict(
+        epoch=epoch + 1,
+        model=copy.deepcopy(model.state_dict()),
+        optimizer=optimizer.state_dict(),
+        )   
+
+    return state      
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('Pre-training script', parents=[get_arguments()])
-    args = parser.parse_args() # to allow torchrun to set local_rank
+    args = parser.parse_args()
     general_utils.set_reproducibility(args.seed)
-    main(args)  # già include dist.init_process_group e usa args.local_rank
+    main(args)
     torch.cuda.empty_cache()
+
 
 
 

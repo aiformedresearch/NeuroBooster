@@ -156,7 +156,7 @@ class ADNI_AGE_Dataset(Dataset):
 
         original_img = torch.tensor(self.fold_imgs[index,:,:,:]) 
 
-        if self.paradigm in ['vicreg']:
+        if self.paradigm in ['vicreg', 'simclr']:
             if random.random() < self.augmentation_rate:
                 img_x =  self.transform(original_img)
                 img_x = img_x.repeat(3, 1, 1)
