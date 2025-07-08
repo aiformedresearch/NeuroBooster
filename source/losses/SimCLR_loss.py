@@ -9,50 +9,42 @@ class simclr_loss(nn.Module):
         self.batch_size = args.batch_size
 
     def forward(self, x, y):
-        """
-        Compute SimCLR NT-Xent loss between two batches x and y.
-
-        Args:
-            x: Tensor of shape [B, D] (augmented view 1)
-            y: Tensor of shape [B, D] (augmented view 2)
-
-        Returns:
-            total_loss: scalar SimCLR loss
-            pos_sim: average positive similarity (for logging)
-            avg_sim: average similarity (for logging)
-        """
         device = x.device
         batch_size = x.size(0)
 
-        # Concatenate both views
-        z = torch.cat([x, y], dim=0)  # [2B, D]
+        # Normalize embeddings
+        x = F.normalize(x, dim=1)
+        y = F.normalize(y, dim=1)
+
+        # Sanity check on cosine similarity
+        cosine_vals = F.cosine_similarity(x, y, dim=1)
+        max_sim = cosine_vals.max().item()
+        min_sim = cosine_vals.min().item()
+        mean_sim = cosine_vals.mean().item()
+        
+        # Concatenate embeddings
+        z = torch.cat([x, y], dim=0)  # shape [2B, D]
         z = F.normalize(z, dim=1)
 
-        # Compute cosine similarity matrix [2B, 2B]
-        sim_matrix = torch.matmul(z, z.T)  # cosine similarity
+        # Cosine similarity matrix
+        sim_matrix = torch.matmul(z, z.T) / self.temperature
 
-        # Remove self-similarity
-        mask = torch.eye(2 * batch_size, dtype=torch.bool).to(device)
-        sim_matrix = sim_matrix.masked_fill(mask, -9e15)  # large negative number for stability
+        # Mask diagonal (self-similarity)
+        mask = torch.eye(2 * batch_size, dtype=torch.bool, device=device)
+        sim_matrix = sim_matrix.masked_fill(mask, -1e4)
 
-        # Similarity divided by temperature
-        sim_matrix /= self.temperature
+        # Labels for cross-entropy
+        labels = torch.arange(batch_size, device=device)
+        labels = torch.cat([labels + batch_size, labels], dim=0)
 
-        # Positive pairs (i-th view1 with (i+B)-th view2, and vice versa)
-        pos_indices = torch.arange(batch_size).to(device)
-        positives = torch.cat([
-            torch.sum(x * y, dim=-1),
-            torch.sum(y * x, dim=-1)
-        ])
-        positives = positives / self.temperature
+        # Compute contrastive loss
+        loss = F.cross_entropy(sim_matrix, labels)
 
-        # Cross-entropy loss: for each positive, use the full row as logits
-        labels = torch.cat([
-            pos_indices + batch_size,
-            pos_indices
-        ])
+        # Logging metrics
+        with torch.no_grad():
+            pos_sim = cosine_vals.mean()  # scalar in [-1, 1]
+            raw_sim_matrix = torch.matmul(z, z.T)
+            avg_sim = raw_sim_matrix.masked_fill(mask, 0).sum() / (2 * batch_size * (2 * batch_size - 1))
 
-        logits = sim_matrix
-        loss = F.cross_entropy(logits, labels)
+        return loss, pos_sim, avg_sim
 
-        return loss, positives.mean(), sim_matrix.mean()

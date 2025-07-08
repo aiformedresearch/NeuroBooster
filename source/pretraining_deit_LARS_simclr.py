@@ -394,7 +394,6 @@ def main(args):
                             'avg_sim': avg_sim.item()
                         }
 
-
                     elif (args.paradigm == 'medbooster') or (args.paradigm == 'supervised') :
                         output = model.forward(img_x.cuda(gpu,non_blocking=True))
                         tabular = tabular.to(torch.float16)

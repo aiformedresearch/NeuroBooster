@@ -22,7 +22,7 @@ num_workers=${num_workers:-4}
 device=${device:-cuda:0}
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-2500}
+pretrain_epochs=${pretrain_epochs:-2} # 2500
 pretrain_min_epochs=${pretrain_min_epochs:-100}
 pretrain_patience=${pretrain_patience:-100}
 pretrain_batch_size=${pretrain_batch_size:-256}
