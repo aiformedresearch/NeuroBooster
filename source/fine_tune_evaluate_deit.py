@@ -597,6 +597,21 @@ def main_worker(gpu, args):
                     day_time = str(datetime.now()),
                 )
 
+                # Save the model with the lowest fine-tuning loss
+                if epoch == 0:
+                    best_loss = train_all_metrics_dict['fine_tuning_loss']
+                    if 'deit' in args.backbone:
+                        torch.save({'model': model.state_dict()}, args.exp_dir / "best_finetuned.pth")
+                    else:
+                        torch.save({'backbone': backbone.state_dict(), 'head': head.state_dict()}, args.exp_dir / "best_finetuned.pth")
+                else:
+                    if train_all_metrics_dict['fine_tuning_loss'] < best_loss:
+                        best_loss = train_all_metrics_dict['fine_tuning_loss']
+                        if 'deit' in args.backbone:
+                            torch.save({'model': model.state_dict()}, args.exp_dir / "best_finetuned.pth")
+                        else:
+                            torch.save({'backbone': backbone.state_dict(), 'head': head.state_dict()}, args.exp_dir / "best_finetuned.pth")
+
                 for metric_name, metric in train_all_metrics_dict.items():
                     all_stats[metric_name] = metric
 

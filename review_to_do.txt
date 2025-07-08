@@ -253,3 +253,8 @@ motivazioni per comparare solo medbooster con supervised:
 
 
 3D modifications: projector with proper initialization and normalization for dealing with small batch size 
+
+
+simclr 11.22 pretraining, finetuning 4.5
+
+30 secs epoch -> 20 hours 2500 epoch

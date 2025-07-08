@@ -683,7 +683,7 @@ def main_worker(gpu, args):
                     lr_head=args.lr_head,
                     day_time = str(datetime.now()),
                 )
-
+                
                 for metric_name, metric in train_all_metrics_dict.items():
                     all_stats[metric_name] = metric
 

@@ -18,7 +18,7 @@ from utils.model_utils import NativeScalerWithGradNormCount as NativeScaler
 
 # models
 from models.VICReg import init_vicreg, init_vicreg_deit
-from models.SimCLR import init_simclr
+from models.SimCLR import init_simclr, init_simclr_deit
 from models.MedBooster import init_medbooster, init_medbooster_deit
 from models.SimMIM import init_simim
 from models import MAE_pretrain_model
@@ -251,13 +251,17 @@ def main(args):
         elif args.paradigm =='vicreg':
             if 'deit' in args.backbone:
                 model = init_vicreg_deit(args).cuda(gpu)
-                print(model)
+                
             else:
                 model = init_vicreg(args).cuda(gpu)
+
             criterion = vicreg_loss(args).cuda(gpu)
 
         elif args.paradigm =='simclr':
-            model = init_simclr(args).cuda(gpu)
+            if 'deit' in args.backbone:
+                model = init_simclr_deit(args).cuda(gpu) 
+            else:
+                model = init_simclr(args).cuda(gpu)
             criterion = simclr_loss(args).cuda(gpu)
 
         elif args.paradigm == 'mae':
@@ -266,6 +270,8 @@ def main(args):
         elif args.paradigm == 'simim':
             model = init_simim(args).cuda(gpu)
             criterion = simim_loss
+
+        print(model)
 
         # else:
         param_groups = model.parameters()
