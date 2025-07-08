@@ -1,5 +1,11 @@
 import torch
 import torch.nn as nn
+import torch
+import models.backbones.resnet as resnet
+import models.backbones.resnet_3D as resnet_3D
+from models.backbones.resnet_3D import generate_model_with_output_dim
+from torch import nn
+from models.backbones import deit_vision_transformer, deit_vision_transformer_no_masking_no_decoder
 
 class init_simclr(nn.Module):
     def __init__(self, args):

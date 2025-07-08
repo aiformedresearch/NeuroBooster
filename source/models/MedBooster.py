@@ -44,10 +44,37 @@ class init_medbooster_3D(nn.Module):
             self.backbone = backbone
             self.head = Projector(args, num_nodes_embedding)
 
+    # def forward(self, x: torch.Tensor) -> torch.Tensor:
+    #     x = self.backbone(x)
+    #     x = self.head(x)
+    #     return x
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.backbone(x)
+
+        # if x.shape[0] == 0:
+        #     print("❗ Batch has zero samples — skipping")
+        #     return x
+
+        # if torch.isnan(x).any() or torch.isinf(x).any():
+        #     print("❗ NaN or Inf detected in backbone output")
+        #     print(f"Backbone output shape: {x.shape}")
+        #     print(f"Stats — min: {x.min().item():.4f}, max: {x.max().item():.4f}, mean: {x.mean().item():.4f}")
+        #     raise RuntimeError("NaN or Inf in backbone output")
+
+        # print(f"[Forward] Backbone output shape: {x.shape}")
+        # print(f"[Forward] Backbone output stats — min: {x.min().item():.4f}, max: {x.max().item():.4f}, mean: {x.mean().item():.4f}, std: {x.std().item():.4f}")
+
         x = self.head(x)
+
+        # if torch.isnan(x).any() or torch.isinf(x).any():
+        #     print("❗ NaN or Inf detected in head output")
+        #     print(f"Head output shape: {x.shape}")
+        #     print(f"Stats — min: {x.min().item():.4f}, max: {x.max().item():.4f}, mean: {x.mean().item():.4f}")
+        #     raise RuntimeError("NaN or Inf in head output")
+
         return x
+
 
 
 class init_medbooster(nn.Module):

@@ -5,7 +5,7 @@ seeds=(1)
 labels_percentages=(100 1)
 paradigms=(medbooster)
 datasets=(AGE)
-backbones=(deit)
+backbones=(resnet34)
 
 # Constants (unchanged)
 images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
@@ -67,7 +67,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_06_23_LARS_long_volumetric_features/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_02_LARS_long_volumetric_features_resnet34/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -78,7 +78,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-            CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS.py \
+            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \
@@ -123,7 +123,7 @@ for seed in "${seeds[@]}"; do
           fi
 
           if [[ ! -f "$finetune_DONE_FILE" ]]; then
-            CUDA_VISIBLE_DEVICES=1 python source/fine_tune_evaluate_deit.py \
+            CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate_deit.py \
               --paradigm ${paradigm} \
               --images_dir ${images_dir} \
               --tabular_dir ${tabular_dir} \

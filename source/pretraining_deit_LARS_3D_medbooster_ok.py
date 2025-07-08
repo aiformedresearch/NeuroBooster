@@ -340,9 +340,9 @@ def main(args):
         from torch.utils.data.distributed import DistributedSampler
 
         ######### OPTIMIZATION:
-        # drop_last = len(train_dataset) > args.batch_size
-        # if drop_last:
-        print('dropping last batches when using DDP is imporant')
+        drop_last = len(train_dataset) > args.batch_size
+        if drop_last:
+            print('dropping last batches')
 
         # Distributed sampler for multi-GPU
         sampler = DistributedSampler(
@@ -365,7 +365,7 @@ def main(args):
             shuffle=False,               # ❌ shuffle must be False when sampler is set
             worker_init_fn=general_utils.seed_worker,
             generator=g,
-            drop_last=True,
+            drop_last=drop_last,
         )
 
 
@@ -440,113 +440,88 @@ def main(args):
 
         torch.autograd.set_detect_anomaly(True)
 
+        # print('model.head:')
+        # for i, layer in enumerate(model.module.head):
+        #     print(f"Layer {i}: {layer}")
+
+
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
-            for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start=epoch * len(loader)):   
+            for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
                 img_x = img_x.to(torch.float32)  
                 img_y = img_y.to(torch.float32) 
-
-                # # Safety checks on tabular targets
-                # if tabular is None or torch.isnan(tabular).any() or torch.isinf(tabular).any():
-                #     print(f"[Step {step}] ⚠️ Skipping batch: NaN or Inf in tabular")
-                #     continue
-
-                if tabular.ndim == 1:
-                    tabular = tabular.unsqueeze(1)
-                tabular = tabular.to(torch.float32)
-
-                assert not torch.isnan(img_x).any(), "img_x contiene NaN"
-                assert not torch.isnan(tabular).any(), "tabular contiene NaN"
-
-                # Optional: print target statistics
-                if step % 50 == 0:
-                    print(f"[Step {step}] Target stats — min: {tabular.min().item():.4f}, max: {tabular.max().item():.4f}, mean: {tabular.mean().item():.4f}, std: {tabular.std().item():.4f}")
 
                 optimizer.zero_grad()
 
                 with torch.cuda.amp.autocast():
                     if args.paradigm == 'mae':
-                        loss, _, _ = model(img_x.cuda(gpu, non_blocking=True), mask_ratio=args.mae_mask_ratio)
-                        step_metrics = {'loss': loss.item()}
-
+                        loss, _, _ = model(img_x.cuda(gpu,non_blocking=True), mask_ratio=args.mae_mask_ratio)
+                        step_metrics = {'loss':loss.item()}
+                    
                     elif args.paradigm == 'simim':
-                        img_x = img_x.cuda(gpu, non_blocking=True)
-                        mask = img_y.cuda(gpu, non_blocking=True)
+                        img_x = img_x.cuda(gpu,non_blocking=True)
+                        mask = img_y.cuda(gpu,non_blocking=True)
                         img_rec, mask = model(img_x, mask)
                         loss = criterion(img_x, img_rec, mask, model.in_chans, model.patch_size)
-                        step_metrics = {'loss': loss.item()}
-
+                        step_metrics = {'loss':loss.item()}
+                    
                     elif args.paradigm == 'vicreg':
-                        z_x, z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
-                        loss, sim_loss, std_loss, cov_loss = criterion(z_x, z_y)
-                        step_metrics = {
-                            'loss': loss.item(),
-                            'sim_loss': sim_loss.item(),
-                            'std_loss': std_loss.item(),
-                            'cov_loss': cov_loss.item()
-                        }
+                        z_x,z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
+                        loss, sim_loss, std_loss, cov_loss = criterion(z_x,z_y)
+                        step_metrics = {'loss': loss.item(), 'sim_loss': sim_loss.item(), 'std_loss':std_loss.item(), 'cov_loss':cov_loss.item()}
 
-                    elif args.paradigm in ['medbooster', 'supervised']:
-                        output = model.forward(img_x.cuda(gpu, non_blocking=True))
+                    elif (args.paradigm == 'medbooster') or (args.paradigm == 'supervised') :
+                        output = model.forward(img_x.cuda(gpu,non_blocking=True))
 
-                        # if torch.isnan(output).any() or torch.isinf(output).any():
-                        #     print(f"[Step {step}] ❌ NaN/Inf in model output — skipping batch")
-                        #     print(f"Output stats: min={output.min().item():.4f}, max={output.max().item():.4f}, mean={output.mean().item():.4f}, std={output.std().item():.4f}")
-                        #     continue
+                        tabular = tabular.to(torch.float16)
+                        if len(tabular.shape)==1:
+                            tabular = tabular.reshape(-1,1)
 
-                        # if output.shape != tabular.shape:
-                        #     print(f"[Step {step}] ❗ Shape mismatch — output: {output.shape}, target: {tabular.shape} — skipping batch")
-                        #     continue
+                        # # DEBUG: check prediction-target alignment
+                        # print("DEBUG: output shape:", output.shape)
+                        # print("DEBUG: tabular shape:", tabular.shape)
 
                         loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
 
-                        if torch.isnan(loss) or torch.isinf(loss):
-                            print(f"[Step {step}] ❌ NaN or Inf in loss — skipping batch. Loss value: {loss.item()}")
-                            continue
+                        with torch.no_grad():
+                            if args.task == 'regression':
+                                if tabular_scaler_fold_i:
+                                    y_pred_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu()))
+                                    y_true_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu()))
+                                    rescaled_loss = criterion(y_pred_rescaled.cuda(gpu, non_blocking=True),
+                                                              y_true_rescaled.cuda(gpu, non_blocking=True))
 
-                        if args.task == 'regression':
-                            if tabular_scaler_fold_i:
-                                try:
-                                    y_pred_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(output.detach().cpu()))
-                                    y_true_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.detach().cpu()))
-                                    rescaled_loss = criterion(
-                                        y_pred_rescaled.cuda(gpu, non_blocking=True),
-                                        y_true_rescaled.cuda(gpu, non_blocking=True)
-                                    )
-                                except Exception as e:
-                                    print(f"[Step {step}] ⚠️ Error in inverse_transform — skipping batch\n{e}")
-                                    continue
+                                    # # DEBUG: check for any large-scale mismatch
+                                    # print(f"[E{epoch:02d}][S{step}] raw loss: {loss.item():.4f} - rescaled loss: {rescaled_loss.item():.2f}")
+                                    # print(f"     mean pred (rescaled): {y_pred_rescaled.mean().item():.2f}")
+                                    # print(f"     mean target (rescaled): {y_true_rescaled.mean().item():.2f}")
+                                else:
+                                    rescaled_loss = loss
+                                
+                                step_metrics = {'loss':loss.item(), 'rescaled_loss':rescaled_loss.item()}
                             else:
-                                rescaled_loss = loss
-
-                            step_metrics = {'loss': loss.item(), 'rescaled_loss': rescaled_loss.item()}
-                        else:
-                            step_metrics = {'loss': loss.item()}
-
-                # Learning rate adjustment
+                                step_metrics = {'loss':loss.item()}
+                    
                 lr = adjust_learning_rate(args, optimizer, loader, step)
-
-                # # Final check before backward
-                # if torch.isnan(loss) or torch.isinf(loss):
-                #     print(f"[Step {step}] ❌ Loss is NaN or Inf before backward — skipping")
-                #     continue
-
-                # Backward and optimizer step
+                
                 scaler.scale(loss).backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
 
-                # Aggregate metrics
+                # DEBUG: monitor GPU memory (optional)
+                # gpu_memory = torch.cuda.max_memory_allocated() / 1024**2
+                # max_gpu_usage = max(max_gpu_usage, gpu_memory)
+                # print(f"GPU Memory Used: {gpu_memory:.2f} MB")
+
+                # compute avg loss:
                 with torch.no_grad():
-                    if starting_epoch:
+                    if starting_epoch: 
                         starting_epoch = False
-                        train_all_metrics_dict = step_metrics.copy()
-                    else:
+                        train_all_metrics_dict = step_metrics   
+                    else: 
                         for name_loss_i, loss_i in step_metrics.items():
-                            train_all_metrics_dict[name_loss_i] += loss_i / len(loader)
-
-
+                            train_all_metrics_dict[name_loss_i] += loss_i/len(loader)
+            
             if starting_epoch:
                 print('not enough samples:', len(loader))
                 break

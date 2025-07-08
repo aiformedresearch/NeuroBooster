@@ -108,23 +108,52 @@ def Projector(args, embedding):
     for i in range(len(f) - 2):
         layers.append(nn.Linear(f[i], f[i + 1]))
         layers.append(nn.BatchNorm1d(f[i + 1]))
-        layers.append(nn.ReLU(inplace=False))
+        layers.append(nn.ReLU(True))
     layers.append(nn.Linear(f[-2], f[-1], bias=False))
     return nn.Sequential(*layers)
+
+
+# def Projector_3D(args, embedding):
+#     mlp_spec = f"{embedding}-{args.projector}"
+#     layers = []
+#     f = list(map(int, mlp_spec.split("-")))
+#     for i in range(len(f) - 2):
+#         layers.append(nn.Linear(f[i], f[i + 1]))
+#         # Replace BatchNorm1d with LayerNorm for better stability with small batch sizes and AMP
+#         if (f[i + 1] > 1):
+#             layers.append(nn.LayerNorm(f[i + 1]))
+#         layers.append(nn.ReLU(inplace=False))
+#     # Final linear layer with explicit initialization
+#     linear_final = nn.Linear(f[-2], f[-1], bias=True)
+#     nn.init.xavier_uniform_(linear_final.weight)
+#     layers.append(linear_final)
+#     return nn.Sequential(*layers)
+
+import torch.nn as nn
+import torch.nn.init as init
+
+import torch.nn as nn
+import torch.nn.init as init
 
 def Projector_3D(args, embedding):
     mlp_spec = f"{embedding}-{args.projector}"
     layers = []
     f = list(map(int, mlp_spec.split("-")))
+
+    # Initial normalization of backbone output
+    layers.append(nn.LayerNorm(f[0]))
+
     for i in range(len(f) - 2):
         layers.append(nn.Linear(f[i], f[i + 1]))
-        # Replace BatchNorm1d with LayerNorm for better stability with small batch sizes and AMP
-        if (f[i + 1] > 1):
-            layers.append(nn.LayerNorm(f[i + 1]))
-        layers.append(nn.ReLU(inplace=False))
-    # Final linear layer with explicit initialization
-    linear_final = nn.Linear(f[-2], f[-1], bias=True)
-    nn.init.xavier_uniform_(linear_final.weight)
-    layers.append(linear_final)
-    return nn.Sequential(*layers)
+        layers.append(nn.LayerNorm(f[i + 1]))  # Safer than BatchNorm1d
+        layers.append(nn.ReLU(inplace=True))
 
+    # Optional dropout before final linear
+    layers.append(nn.Dropout(p=0.2))
+
+    final_linear = nn.Linear(f[-2], f[-1], bias=True)
+    init.xavier_uniform_(final_linear.weight)
+    init.zeros_(final_linear.bias)
+    layers.append(final_linear)
+
+    return nn.Sequential(*layers)
