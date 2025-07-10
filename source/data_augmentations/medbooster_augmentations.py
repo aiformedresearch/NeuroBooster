@@ -60,3 +60,17 @@ class TrainTransform_Crop(object):
     def __call__(self, sample):
         x1 = self.transform(sample)
         return x1
+
+
+def corrupt(subject, marginal_distributions, corruption_rate):
+  """
+  Creates a copy of a subject, selects the indices 
+  to be corrupted (determined by hyperparam corruption_rate)
+  and replaces their values with ones sampled from marginal distribution
+  """
+  subject = copy.deepcopy(subject)
+
+  indices = random.sample(list(range(len(subject))), int(len(subject)*corruption_rate)) 
+  for i in indices:
+    subject[i] = random.sample(marginal_distributions[i],k=1)[0] 
+  return subject

@@ -98,6 +98,22 @@ class ADNI_AGE_Dataset_3D(Dataset):
             img_x = transform_fn(volume)
             img_y = self.transform(volume) if self.paradigm == 'vicreg' else torch.zeros(1)
             tabular = torch.zeros(1) if self.paradigm in ['vicreg', 'mae'] else self.fold_targets[index]
+        
+        elif self.paradigm in ['medbooster_corrupted']:
+        
+            #pil_img = transforms.ToPILImage()(original_img)
+            if random.random() < self.augmentation_rate:
+                img_x =  self.transform(original_img)
+                img_x = img_x.repeat(3, 1, 1)
+            else:
+                img_x = self.default_transform(original_img)
+                img_x = img_x.repeat(3, 1, 1)
+            
+            img_y = torch.zeros(1)
+
+            tabular = self.fold_targets[index]  
+            #print('tabular from loader', tabular)
+            tabular = self.corrupt(torch.tensor(tabular, dtype=torch.float), self.marginal_distributions, self.corruption_rate)
 
         elif self.paradigm == 'simim':
             transform_fn = self.transform if random.random() < self.augmentation_rate else self.default_transform
@@ -152,6 +168,13 @@ class ADNI_AGE_Dataset(Dataset):
         else:
             self.default_transform = transforms[0](args, self.mean, self.std)
             self.augmentation_rate = 0
+
+        if args.paradigm == 'medbooster_corrupted':
+            data_df = pd.DataFrame(fold_targets, columns = [f'feature_{n}' for n in range(len(fold_targets[0])) ], dtype = float)
+            self.marginal_distributions = data_df.transpose().values.tolist()
+            self.corruption_rate = args.corruption_rate
+            self.corrupt = transforms[2]
+
     def __getitem__(self, index):
 
         original_img = torch.tensor(self.fold_imgs[index,:,:,:]) 
@@ -180,6 +203,18 @@ class ADNI_AGE_Dataset(Dataset):
                 tabular = torch.zeros(1) # no use of tabular features
             else:
                 tabular = self.fold_targets[index]
+
+        elif self.paradigm in ['medbooster_corrupted']:
+            
+            if random.random() < self.augmentation_rate:
+                img_x =  self.transform(original_img)
+                img_x = img_x.repeat(3, 1, 1)
+            else:
+                img_x = self.default_transform(original_img)
+                img_x = img_x.repeat(3, 1, 1)
+            img_y = torch.zeros(1)
+            tabular = self.fold_targets[index]
+
 
         elif self.paradigm in ['simim']:
             if random.random() < self.augmentation_rate:
@@ -319,7 +354,7 @@ def cross_validation(args):
 
         check_data_leakage(groups, indexes_train_fold_i, indexes_val_fold_i) # double check
     
-    if not(args.paradigm in ['supervised', 'medbooster']):
+    if not(args.paradigm in ['supervised', 'medbooster', 'medbooster_corrupted']):
         targets_train_folds =  {fold:[] for fold in range(args.cross_val_folds)}
         targets_val_folds =  {fold:[] for fold in range(args.cross_val_folds)}
 
@@ -430,7 +465,7 @@ def bootstrap(args):
 
     check_data_leakage(groups, indexes_train, indexes_val) # double check
     
-    if not(args.paradigm in ['supervised', 'medbooster']):
+    if not(args.paradigm in ['supervised', 'medbooster', 'medbooster_corrupted']):
         targets_train = []  
         targets_val = []  
     

@@ -54,7 +54,8 @@ def get_arguments():
     parser.add_argument('--labels_percentage', type = int, default = 100, help="If supervised paradigm, select the percentage of labels to be used")
     parser.add_argument("--normalization", type=str, default='')
     parser.add_argument("--augmentation_rate", type = float, default = 0.9, help='paradigm data augmentation hyperparameter')
-
+    parser.add_argument("--corruption_rate", type = float, default = 0.3, help='bbworld paradigm data augmentation hyperparameter')
+    
     # Results directory
     parser.add_argument("--exp-dir", type=Path, default="./exp", help='Path to the experiment folder, where all the outputs will be stored')
 
@@ -183,6 +184,11 @@ def main(args):
                           data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
                           ]
 
+        elif args.paradigm == 'medbooster_corrupted':
+            transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
+                          data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
+                          data_augmentations.medbooster_augmentations.corrupt]
+
         elif (args.paradigm == 'mae'):
             #transforms = [data_augmentations.neuro_booster_augmentations.TrainTransform_Resize_Norm]
             transforms = [mae_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
@@ -199,7 +205,7 @@ def main(args):
 
         ################## MODEL ARCHITECTURE:
         print('INITIALIZING MODEL')
-        if args.paradigm in ['medbooster', 'supervised']:
+        if args.paradigm in ['medbooster', 'supervised', 'medbooster_corrupted']:
             projector_dims = args.projector.split("-")
             args.projector = f'{projector_dims[0]}-{args.num_classes}'
         
@@ -209,7 +215,7 @@ def main(args):
         #     raise Exception('the transformer backbone is supposed to be used with simim paradigm')
 
         ########## LOSS FUNCTION
-        if args.paradigm == 'supervised' or args.paradigm == 'medbooster':
+        if args.paradigm == 'supervised' or args.paradigm == 'medbooster' or args.paradigm == 'medbooster_corrupted':
 
             if 'deit' in args.backbone:
                 print('init deit backbone')
@@ -387,7 +393,7 @@ def main(args):
                         loss, sim_loss, std_loss, cov_loss = criterion(z_x,z_y)
                         step_metrics = {'loss': loss.item(), 'sim_loss': sim_loss.item(), 'std_loss':std_loss.item(), 'cov_loss':cov_loss.item()}
 
-                    elif (args.paradigm == 'medbooster') or (args.paradigm == 'supervised') :
+                    elif (args.paradigm == 'medbooster') or (args.paradigm == 'medbooster_corrupted') or (args.paradigm == 'supervised') :
                         output = model.forward(img_x.cuda(gpu,non_blocking=True))
                         tabular = tabular.to(torch.float16)
                         if len(tabular.shape)==1:
@@ -497,7 +503,7 @@ def create_dict_state(args, model, optimizer, epoch):
         model=copy.deepcopy(model.state_dict()),
         optimizer=copy.deepcopy(optimizer.state_dict()),
         )
-    elif (args.paradigm in ['supervised','medbooster']) and ('resnet' in args.backbone):
+    elif (args.paradigm in ['supervised','medbooster','medbooster_corrupted']) and ('resnet' in args.backbone):
         state = dict(
         epoch=epoch + 1,
         backbone=copy.deepcopy(model.backbone.state_dict()),

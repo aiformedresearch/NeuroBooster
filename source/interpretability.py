@@ -63,13 +63,24 @@ def generate_saliency_map(model, image, target_value, device):  # target_value i
     saliency = image.grad.abs().squeeze().cpu().numpy()
     return saliency.max(axis=0)  # max over channels
 
-
 def plot_image_saliency_overlay(image, saliency, pred, true, out_path):
-    if image.shape[0] == 3:
-        image = np.moveaxis(image.cpu().numpy(), 0, -1)
-        image = np.mean(image, axis=-1)
+    if isinstance(image, torch.Tensor):
+        if image.shape[0] == 3:
+            image = np.moveaxis(image.cpu().numpy(), 0, -1)
+            image = np.mean(image, axis=-1)
+        else:
+            image = image.squeeze().cpu().numpy()
     else:
-        image = image.squeeze().cpu().numpy()
+        image = np.squeeze(image)
+
+    if isinstance(saliency, torch.Tensor):
+        saliency = saliency.squeeze().cpu().numpy()
+    else:
+        saliency = np.squeeze(saliency)
+
+    # 🔁 Rotate both image and saliency 180 degrees
+    image = np.rot90(image, 2)
+    saliency = np.rot90(saliency, 2)
 
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 
@@ -86,10 +97,8 @@ def plot_image_saliency_overlay(image, saliency, pred, true, out_path):
     axs[2].set_title('Overlay')
     axs[2].axis('off')
 
-    # 👇 Set overall figure title
     fig.suptitle(f'Pred: {pred:.1f} | True: {true:.1f}', fontsize=14)
-
-    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for suptitle
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(out_path, dpi=300)
     plt.close()
 

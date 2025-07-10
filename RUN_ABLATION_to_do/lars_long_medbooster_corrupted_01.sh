@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(0 1 2 3)
-labels_percentages=(100 1)
-paradigms=(simclr)
+seeds=(0 1)
+labels_percentages=(100)
+paradigms=(medbooster_corrupted)
 datasets=(AGE)
-backbones=(deit)
+backbones=(resnet34)
 
 # Constants (unchanged)
 images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
-tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/13_06_2025/df_table_merged_normalized_by_eTIV.csv}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
 resize_shape=${resize_shape:-224}
 train_classes_percentage_values=${train_classes_percentage_values:-None}
 num_classes=${num_classes:-2}
@@ -22,7 +22,7 @@ num_workers=${num_workers:-4}
 device=${device:-cuda:0}
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-2500} # 2500
+pretrain_epochs=${pretrain_epochs:-2500}
 pretrain_min_epochs=${pretrain_min_epochs:-100}
 pretrain_patience=${pretrain_patience:-100}
 pretrain_batch_size=${pretrain_batch_size:-256}
@@ -67,7 +67,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_deit/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_10_LARS_long_medbooster_corrupted_resnet/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -78,7 +78,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-            CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS_simclr.py \
+            CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \
@@ -117,7 +117,7 @@ for seed in "${seeds[@]}"; do
               --simim_drop_path_rate ${simim_drop_path_rate} \
               --weight-decay ${pretrain_weight_decay} \
               --weighted_loss ${pretrain_weighted_loss} \
-              > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
+              > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1 &
           else
             echo "⏭ Skipping training (already done or not needed)"
           fi

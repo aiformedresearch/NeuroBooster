@@ -2,17 +2,16 @@
 
 import os
 from collections import defaultdict
-
 # Base directory
-base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_06_16_LARS_long_no_augm"
+base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_resnet34"
 
 # Seeds and labels percentages to check
-seeds = range(5)
+seeds = range(11)
 labels_percentages = [100, 1]
 dataset='AGE'
 
 # Paradigms to organize by
-paradigms = ["supervised", "medbooster"]
+paradigms = ["simclr"]
 
 # Dictionaries to hold found and missing fold_0 folders per paradigm
 found_folders = defaultdict(list)
