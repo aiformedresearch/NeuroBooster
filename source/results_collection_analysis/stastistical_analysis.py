@@ -43,15 +43,15 @@ def stat_analysis(df, col1, col2, destination_path):
 
 #One-tailed Wilcoxon signed-rank test: il Wilcoxon test per dati appaitai si chiama Wilcoxon signed-rank test ed anche in questo caso lo devi fare ad una coda per il discorso fatto prima.
 
-seeds = range(30)
-paradigms = ['vicreg', 'simim', 'neurobooster', 'supervised', 'bbworld']
+seeds = range(23)
+paradigms = ['supervised', 'neurobooster', 'simclr', 'vicreg', 'mae', 'simim']
 folds = range(1)
-labels_percentage_list= [100, 10]
-source_folder_path_all_experiments = Path('/home/andreaespis/diciotti/med-booster/EXPERIMENTS_MRI_augm_21_11')/'results'
+labels_percentage_list= [100, 10, 1]
+source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/EXPERIMENTS_MRI_augm_21_11/EXPS')/'results_definitive_AGE'
 destination_folder_path = source_folder_path_all_experiments
 
 destination_stats = open(destination_folder_path/'stats.txt' , "a", buffering=1)
-for paradigms_to_compare in [['neurobooster', 'bbworld'], ['bbworld', 'neurobooster'], ['neurobooster','vicreg'], ['neurobooster','supervised'], ['neurobooster','simim']]:
+for paradigms_to_compare in [['neurobooster', 'supervised'], ['neurobooster', 'simclr'], ['neurobooster','vicreg'], ['neurobooster','mae'], ['neurobooster','simim']]:
     for labels_percentage in labels_percentage_list:
         for metric in ['RMSE', 'MAE']:
             print(f'\n {metric}, {labels_percentage}:', file = destination_stats)

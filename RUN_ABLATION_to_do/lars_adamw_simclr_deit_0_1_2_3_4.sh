@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(0 1 2 3 4 5 6 7 8 9 10 11)
-labels_percentages=(10)
+seeds=(0 1 2 3 4)
+labels_percentages=(100 1)
 paradigms=(simclr)
 datasets=(AGE)
-backbones=(resnet34)
+backbones=(deit)
 
 # Constants (unchanged)
 images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
-tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/13_06_2025/df_table_merged_normalized_by_eTIV.csv}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
 resize_shape=${resize_shape:-224}
 train_classes_percentage_values=${train_classes_percentage_values:-None}
 num_classes=${num_classes:-2}
@@ -22,9 +22,9 @@ num_workers=${num_workers:-4}
 device=${device:-cuda:0}
 
 # Pretraining
-pretrain_epochs=${pretrain_epochs:-2500} # 2500
-pretrain_min_epochs=${pretrain_min_epochs:-100}
-pretrain_patience=${pretrain_patience:-100}
+pretrain_epochs=${pretrain_epochs:-300}
+pretrain_min_epochs=${pretrain_min_epochs:-200}
+pretrain_patience=${pretrain_patience:-50}
 pretrain_batch_size=${pretrain_batch_size:-256}
 pretrain_optim=${pretrain_optim:-LARS}
 pretrain_base_lr=${pretrain_base_lr:-0.05} #5e-4 fixed for beit or deit backbone!!
@@ -67,7 +67,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_resnet34/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_15_LARS_adamw_simclr_deit/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -76,51 +76,51 @@ for seed in "${seeds[@]}"; do
 
           echo "Running: SEED=$seed | PARADIGM=$paradigm | DATASET=$dataset_name | PERC=$labels_percentage | BACKBONE=$backbone"
 
-          # if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
+          if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-          #   CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS_simclr.py \
-          #     --paradigm ${paradigm} \
-          #     --labels_percentage ${labels_percentage} \
-          #     --images_dir ${images_dir} \
-          #     --tabular_dir ${tabular_dir} \
-          #     --dataset_name ${dataset_name} \
-          #     --seed ${seed} \
-          #     --exp-dir ${EXPERIMENT_FOLDER_NAME} \
-          #     --backbone ${backbone} \
-          #     --projector ${projector} \
-          #     --batch-size ${pretrain_batch_size} \
-          #     --cross_val_folds ${cross_val_folds} \
-          #     --device ${device} \
-          #     --base_lr ${pretrain_base_lr} \
-          #     --optim ${pretrain_optim} \
-          #     --min_epochs ${pretrain_min_epochs} \
-          #     --patience ${pretrain_patience} \
-          #     --num_workers ${num_workers} \
-          #     --epochs ${pretrain_epochs} \
-          #     --resize_shape ${resize_shape} \
-          #     --normalization ${normalization} \
-          #     --augmentation_rate ${augmentation_rate} \
-          #     --vicreg_sim_coeff ${vicreg_sim_coeff} \
-          #     --vicreg_std_coeff ${vicreg_std_coeff} \
-          #     --vicreg_cov_coeff ${vicreg_cov_coeff} \
-          #     --simim_bottleneck ${simim_bottleneck} \
-          #     --simim_depth ${simim_depth} \
-          #     --simim_mlp_ratio ${simim_mlp_ratio} \
-          #     --simim_num_heads ${simim_num_heads} \
-          #     --simim_emb_dim ${simim_emb_dim} \
-          #     --simim_encoder_stride ${simim_encoder_stride} \
-          #     --simim_in_chans ${simim_in_chans} \
-          #     --simim_use_bn ${simim_use_bn} \
-          #     --simim_patch_size ${simim_patch_size} \
-          #     --simim_mask_patch_size ${simim_mask_patch_size} \
-          #     --simim_mask_ratio ${simim_mask_ratio} \
-          #     --simim_drop_path_rate ${simim_drop_path_rate} \
-          #     --weight-decay ${pretrain_weight_decay} \
-          #     --weighted_loss ${pretrain_weighted_loss} \
-          #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1 &
-          # else
-          #   echo "⏭ Skipping training (already done or not needed)"
-          # fi
+            CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit_SIMIMOPT.py \
+              --paradigm ${paradigm} \
+              --labels_percentage ${labels_percentage} \
+              --images_dir ${images_dir} \
+              --tabular_dir ${tabular_dir} \
+              --dataset_name ${dataset_name} \
+              --seed ${seed} \
+              --exp-dir ${EXPERIMENT_FOLDER_NAME} \
+              --backbone ${backbone} \
+              --projector ${projector} \
+              --batch-size ${pretrain_batch_size} \
+              --cross_val_folds ${cross_val_folds} \
+              --device ${device} \
+              --base_lr ${pretrain_base_lr} \
+              --optim ${pretrain_optim} \
+              --min_epochs ${pretrain_min_epochs} \
+              --patience ${pretrain_patience} \
+              --num_workers ${num_workers} \
+              --epochs ${pretrain_epochs} \
+              --resize_shape ${resize_shape} \
+              --normalization ${normalization} \
+              --augmentation_rate ${augmentation_rate} \
+              --vicreg_sim_coeff ${vicreg_sim_coeff} \
+              --vicreg_std_coeff ${vicreg_std_coeff} \
+              --vicreg_cov_coeff ${vicreg_cov_coeff} \
+              --simim_bottleneck ${simim_bottleneck} \
+              --simim_depth ${simim_depth} \
+              --simim_mlp_ratio ${simim_mlp_ratio} \
+              --simim_num_heads ${simim_num_heads} \
+              --simim_emb_dim ${simim_emb_dim} \
+              --simim_encoder_stride ${simim_encoder_stride} \
+              --simim_in_chans ${simim_in_chans} \
+              --simim_use_bn ${simim_use_bn} \
+              --simim_patch_size ${simim_patch_size} \
+              --simim_mask_patch_size ${simim_mask_patch_size} \
+              --simim_mask_ratio ${simim_mask_ratio} \
+              --simim_drop_path_rate ${simim_drop_path_rate} \
+              --weight-decay ${pretrain_weight_decay} \
+              --weighted_loss ${pretrain_weighted_loss} \
+              > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
+          else
+            echo "⏭ Skipping training (already done or not needed)"
+          fi
 
           if [[ ! -f "$finetune_DONE_FILE" ]]; then
             CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
@@ -163,7 +163,7 @@ for seed in "${seeds[@]}"; do
               --patience ${finetune_patience} \
               --min_epochs ${finetune_min_epochs} \
               --seed ${seed} \
-              > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1
+              > ${EXPERIMENT_FOLDER_NAME}/finetuning_output.log 2>&1 &
           
           else
             echo "⏭ Skipping finetuning (already done)"

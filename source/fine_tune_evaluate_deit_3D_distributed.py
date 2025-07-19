@@ -164,7 +164,7 @@ def get_arguments():
     # others
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--local_rank', type=int, default=0, help='local rank passed from torchrun')
-    parser.add_argument('--distributed', type = str2bool, default =False)
+
 
     return parser
 
@@ -173,50 +173,43 @@ def main(args):
 
 
 def main_worker(gpu, args):
-    distributed = args.distributed
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    args.local_rank = local_rank  # if you want to keep it in args
 
-    if distributed:
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        args.local_rank = local_rank  # if you want to keep it in args
+    print(f"[DEBUG] args.local_rank = {args.local_rank}")
+    print(f"[DEBUG] os.environ['LOCAL_RANK'] = {os.environ.get('LOCAL_RANK')}")
 
-        print(f"[DEBUG] args.local_rank = {args.local_rank}")
-        print(f"[DEBUG] os.environ['LOCAL_RANK'] = {os.environ.get('LOCAL_RANK')}")
+    # Inizializza il processo distribuito
+    if args.local_rank == 0:
+        print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
 
-        # Inizializza il processo distribuito
-        if args.local_rank == 0:
-            print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+    # Init DDP (assumes torchrun sets local_rank)
+    dist.init_process_group(backend='nccl')
 
-        # Init DDP (assumes torchrun sets local_rank)
-        dist.init_process_group(backend='nccl')
-
-        # Set correct logical CUDA device
-        torch.cuda.set_device(local_rank)
-        
-        device = torch.device(f"cuda:{local_rank}")
-
-
-        # Define GPU device using logical index
-        gpu = torch.device(f"cuda:{local_rank}")
-        args.gpu = gpu
-
-        # Optional debug: check actual physical device
-        print(f"[Rank {local_rank}] mapped to CUDA device {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
-
-
-        print(f"[Rank {args.local_rank}] CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES')}")
-        print(f"[Rank {args.local_rank}] Using CUDA device index = {args.local_rank}")
-        print(f"[Rank {args.local_rank}] torch.cuda.device_count() = {torch.cuda.device_count()}")
-        print(f"[Rank {args.local_rank}] torch.cuda.current_device() = {torch.cuda.current_device()}")
-        print(f"[Rank {args.local_rank}] torch.cuda.get_device_name() = {torch.cuda.get_device_name(torch.cuda.current_device())}")
-
-        if dist.get_rank() == 0:
-            print("✅ Rank 0 setup done.")
-        elif dist.get_rank() == 1:
-            print("✅ Rank 1 setup done.")
+    # Set correct logical CUDA device
+    torch.cuda.set_device(local_rank)
     
-    else:
-        gpu = torch.device(args.device)
-        args.gpu = gpu
+    device = torch.device(f"cuda:{local_rank}")
+
+
+    # Define GPU device using logical index
+    gpu = torch.device(f"cuda:{local_rank}")
+    args.gpu = gpu
+
+    # Optional debug: check actual physical device
+    print(f"[Rank {local_rank}] mapped to CUDA device {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
+
+
+    print(f"[Rank {args.local_rank}] CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+    print(f"[Rank {args.local_rank}] Using CUDA device index = {args.local_rank}")
+    print(f"[Rank {args.local_rank}] torch.cuda.device_count() = {torch.cuda.device_count()}")
+    print(f"[Rank {args.local_rank}] torch.cuda.current_device() = {torch.cuda.current_device()}")
+    print(f"[Rank {args.local_rank}] torch.cuda.get_device_name() = {torch.cuda.get_device_name(torch.cuda.current_device())}")
+
+    if dist.get_rank() == 0:
+        print("✅ Rank 0 setup done.")
+    elif dist.get_rank() == 1:
+        print("✅ Rank 1 setup done.")
 
     args.exp_dir_original = args.exp_dir
     args.num_classes = 1
@@ -429,8 +422,7 @@ def main_worker(gpu, args):
                     n_classes=1  # dummy classifier
                 )
                 backbone.fc = nn.Identity()  # remove classification head
-                if distributed:
-                    backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[local_rank])
+                backbone = torch.nn.parallel.DistributedDataParallel(backbone, device_ids=[local_rank])
             else:
                 backbone, num_nodes_embedding = resnet.__dict__[args.backbone](zero_init_residual=True, num_channels=3)
             state_dict = torch.load(args.pretrained_path, map_location='cpu')   
@@ -464,8 +456,7 @@ def main_worker(gpu, args):
                 return self.head(x)
 
         model = FrozenBackboneModel(backbone, head).to(args.gpu)
-        if distributed:
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank])
 
         param_groups = [dict(params=head.parameters(), lr=args.lr_head)]
 
@@ -710,8 +701,7 @@ def main_worker(gpu, args):
                     break
             
         (args.exp_dir / "finetuning_ablation_done.txt").touch()
-        if distributed:
-            dist.destroy_process_group()
+        dist.destroy_process_group()
 
 
 import torchio as tio

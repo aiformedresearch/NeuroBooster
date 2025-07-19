@@ -11,11 +11,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 #python MAIN/source/results_collection_analysis/analyze_results.py
 
-seeds = range(30)
-paradigms = ['vicreg', 'simim', 'neurobooster', 'supervised', 'bbworld']
+seeds = range(23)
+paradigms = ['supervised','neurobooster', 'simclr', 'vicreg', 'mae', 'simim']
 folds = range(1)
-labels_percentage_list= [100, 10]
-source_folder_path_all_experiments = Path('/home/andreaespis/diciotti/med-booster/EXPERIMENTS_MRI_augm_21_11')/'results'
+labels_percentage_list= [100, 10, 1]
+source_folder_path_all_experiments = Path('/Ironman/scratch/Andrea/med-booster/EXPERIMENTS_MRI_augm_21_11/EXPS')/'results_definitive_AGE'
 destination_folder_path = source_folder_path_all_experiments
 
 

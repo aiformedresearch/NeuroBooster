@@ -6,9 +6,9 @@ from collections import defaultdict
 base_dir = "/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_resnet34"
 
 # Seeds and labels percentages to check
-seeds = range(11)
-labels_percentages = [100, 1]
-dataset='AGE'
+seeds = range(30)
+labels_percentages = [100, 10, 1]
+dataset='ADNI'
 
 # Paradigms to organize by
 paradigms = ["simclr"]

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # Path to your results folder
-folder = '/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_07_02_LARS_long_no_augm_resnet34/results_definitive'
+folder = '/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_resnet34/results_definitive'
 
 # List all .csv files in the folder
 for filename in os.listdir(folder):

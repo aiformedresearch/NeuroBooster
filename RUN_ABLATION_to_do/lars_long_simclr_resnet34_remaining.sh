@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(0 1 2 3 4 5 6 7 8 9 10 11)
-labels_percentages=(10)
+seeds=(0 1 2 3 4 5 6 7 8 9 10 11 14 15 16 17 18 25 26 27 12 13 19 20 21 22 23 24)
+labels_percentages=(100 10 1)
 paradigms=(simclr)
 datasets=(AGE)
 backbones=(resnet34)
@@ -78,7 +78,7 @@ for seed in "${seeds[@]}"; do
 
           # if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-          #   CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS_simclr.py \
+          #   CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS_simclr.py \
           #     --paradigm ${paradigm} \
           #     --labels_percentage ${labels_percentage} \
           #     --images_dir ${images_dir} \
@@ -117,13 +117,13 @@ for seed in "${seeds[@]}"; do
           #     --simim_drop_path_rate ${simim_drop_path_rate} \
           #     --weight-decay ${pretrain_weight_decay} \
           #     --weighted_loss ${pretrain_weighted_loss} \
-          #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1 &
+          #     > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
           # else
           #   echo "⏭ Skipping training (already done or not needed)"
           # fi
 
           if [[ ! -f "$finetune_DONE_FILE" ]]; then
-            CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
+            CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate_deit.py \
               --paradigm ${paradigm} \
               --images_dir ${images_dir} \
               --tabular_dir ${tabular_dir} \

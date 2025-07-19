@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(9)
+seeds=(21 22 23)
 labels_percentages=(100 1)
 paradigms=(simclr)
 datasets=(AGE)
@@ -78,7 +78,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
 
-            CUDA_VISIBLE_DEVICES=1 python source/pretraining_deit_LARS_simclr.py \
+            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS_simclr.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \

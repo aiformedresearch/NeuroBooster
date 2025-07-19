@@ -17,9 +17,9 @@ import math
 from utils.model_utils import NativeScalerWithGradNormCount as NativeScaler
 
 # models
-from models.VICReg import init_vicreg, init_vicreg_deit
-from models.MedBooster import init_medbooster, init_medbooster_deit
-from models.SimCLR import init_simclr, init_simclr_deit
+from models.VICReg import init_vicreg, init_vicreg_deit, init_vicreg_3D
+from models.MedBooster import init_medbooster, init_medbooster_deit, init_medbooster_3D
+from models.SimMIM import init_simim
 from models import MAE_pretrain_model
 
 # data augmentations
@@ -28,7 +28,6 @@ from data_augmentations import simim_augmentations, mae_augmentations
 
 # losses
 from losses.VICReg_loss import vicreg_loss
-from losses.SimCLR_loss import simclr_loss
 from losses.SimMIM_loss import simim_loss
 from losses.MedBooster_loss import medbooster_loss
 
@@ -67,8 +66,6 @@ def get_arguments():
     parser.add_argument("--vicreg_sim_coeff", type=float, default=25.0, help='vicreg, Invariance regularization loss coefficient')
     parser.add_argument("--vicreg_std_coeff", type=float, default=25.0, help='vicreg, Variance regularization loss coefficient')
     parser.add_argument("--vicreg_cov_coeff", type=float, default=1.0, help='vicreg, Covariance regularization loss coefficient')
-    
-    parser.add_argument("--simclr_temperature", type=float, default=0.5, help='vicreg, Covariance regularization loss coefficient')
     
     parser.add_argument("--simim_bottleneck", type = int, default =1, help='SimMIM model param: bottleneck')
     parser.add_argument("--simim_depth", type = int, default =12, help='SimMIM model param: depth')
@@ -181,15 +178,16 @@ def main(args):
                           data_augmentations.vicreg_augmentations.TrainTransform_Crop, # default transform
                           ]
 
-        elif args.paradigm == 'simclr':
-            transforms = [data_augmentations.vicreg_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
-                          data_augmentations.vicreg_augmentations.TrainTransform_Crop, # default transform
-                          ]
-
         elif (args.paradigm == 'supervised') or (args.paradigm == 'medbooster'):
-            transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
-                          data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
-                          ]
+            if '3D' in args.backbone:
+                print('3D data augm')
+                transforms = [data_augmentations.medbooster_augmentations_3D.TrainTransform_Crop_Affine_Noise_3D, # augmentation
+                            data_augmentations.medbooster_augmentations_3D.TrainTransform_Crop_3D, # default transform
+                           ]
+            else:
+                transforms = [data_augmentations.medbooster_augmentations.TrainTransform_Crop_Affine_Noise, # augmentation
+                            data_augmentations.medbooster_augmentations.TrainTransform_Crop, # default transform
+                            ]
 
         elif (args.paradigm == 'mae'):
             #transforms = [data_augmentations.neuro_booster_augmentations.TrainTransform_Resize_Norm]
@@ -203,7 +201,11 @@ def main(args):
         else:
             print('paradigm not implemented')
 
-        train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, transforms)
+        if '3D' in args.backbone:
+            train_dataset = dataset_utils.ADNI_AGE_Dataset_3D(args, targets_train_fold_i, indexes_train_fold_i, transforms)
+
+        else:
+            train_dataset = dataset_utils.ADNI_AGE_Dataset(args, targets_train_fold_i, indexes_train_fold_i, transforms)
 
         ################## MODEL ARCHITECTURE:
         print('INITIALIZING MODEL')
@@ -224,7 +226,10 @@ def main(args):
                 model = init_medbooster_deit(args).cuda(gpu)
                 print(model)
             else:
-                model = init_medbooster(args).cuda(gpu)
+                if '_3D' in args.backbone:
+                    model = init_medbooster_3D(args).cuda(gpu)
+                else:
+                    model = init_medbooster(args).cuda(gpu)
 
             model.head = nn.Sequential(model.head)
             
@@ -252,15 +257,11 @@ def main(args):
                 model = init_vicreg_deit(args).cuda(gpu)
                 print(model)
             else:
-                model = init_vicreg(args).cuda(gpu)
+                if '_3D' in args.backbone:
+                    model = init_vicreg_3D(args).cuda(gpu)
+                else:
+                    model = init_vicreg(args).cuda(gpu)
             criterion = vicreg_loss(args).cuda(gpu)
-
-        elif args.paradigm =='simclr':
-            if 'deit' in args.backbone:
-                model = init_simclr_deit(args).cuda(gpu) 
-            else:
-                model = init_simclr(args).cuda(gpu)
-            criterion = simclr_loss(args).cuda(gpu)
 
         elif args.paradigm == 'mae':
             model = MAE_pretrain_model.__dict__[args.mae_model](norm_pix_loss=args.mae_norm_pix_loss)
@@ -307,11 +308,11 @@ def main(args):
             drop_last=drop_last,
         )
 
-        # optimizer
-        if ('beit' in args.backbone) or ('deit' in args.backbone):
-            lr = 5e-4
+        # # optimizer
+        # if ('beit' in args.backbone) or ('deit' in args.backbone):
+        #     lr = 5e-4
 
-        if 'resnet' in args.backbone:
+        if True:
             if args.optim == 'SGD':
                 print('optimizer: SGD')
                 optimizer = torch.optim.SGD(param_groups, lr=0)
@@ -334,7 +335,7 @@ def main(args):
                 weight_decay=args.weight_decay,
                 )
 
-        elif ('beit' in args.backbone) or ('deit' in args.backbone):
+        if False:
             from utils.simim_optim import build_scheduler,build_optimizer 
             optimizer = build_optimizer(args, model, is_pretrain=True)
             lr_scheduler = build_scheduler(args, optimizer, len(loader))
@@ -355,14 +356,14 @@ def main(args):
         ############ START PRE-TRAINING
         start_epoch = 0
         start_time = time.time()
-        scaler = torch.cuda.amp.GradScaler() # to deal with underflow of gradients when using autocast
+        scaler = torch.cuda.amp.GradScaler()
         df_train_metrics = {}
         max_gpu_usage = 0
         model.requires_grad_(True)
         model = model.cuda(gpu)
         best_loss = 1e10
         accum_iter = 1                
-        
+
         if fold == 0:
             arg_dict = vars(args)
             with open(args.exp_dir/'args_pretraining.txt', "w") as file:
@@ -374,15 +375,10 @@ def main(args):
 
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
-
-            # if 'deit' in args.backbone:
-            #     optimizer.zero_grad()
-
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start = epoch * len(loader)):   
                 img_x = img_x.to(torch.float32)  
                 img_y = img_y.to(torch.float32) 
 
-                #if not('deit' in args.backbone):
                 optimizer.zero_grad()
 
                 with torch.cuda.amp.autocast():
@@ -401,26 +397,32 @@ def main(args):
                         z_x,z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
                         loss, sim_loss, std_loss, cov_loss = criterion(z_x,z_y)
                         step_metrics = {'loss': loss.item(), 'sim_loss': sim_loss.item(), 'std_loss':std_loss.item(), 'cov_loss':cov_loss.item()}
-                    
-                    elif args.paradigm == 'simclr':
-                        z_x, z_y = model.forward(img_x.cuda(gpu, non_blocking=True), img_y.cuda(gpu, non_blocking=True))
-                        loss, pos_sim, avg_sim = criterion(z_x, z_y)
-                        step_metrics = {
-                            'loss': loss.item(),
-                            'pos_sim': pos_sim.item(),
-                            'avg_sim': avg_sim.item()
-                        }
 
                     elif (args.paradigm == 'medbooster') or (args.paradigm == 'supervised') :
                         output = model.forward(img_x.cuda(gpu,non_blocking=True))
+
                         tabular = tabular.to(torch.float16)
                         if len(tabular.shape)==1:
                             tabular = tabular.reshape(-1,1)
+
+                        # # DEBUG: check prediction-target alignment
+                        # print("DEBUG: output shape:", output.shape)
+                        # print("DEBUG: tabular shape:", tabular.shape)
+
                         loss = criterion(output, tabular.cuda(gpu, non_blocking=True))
+
                         with torch.no_grad():
                             if args.task == 'regression':
                                 if tabular_scaler_fold_i:
-                                    rescaled_loss = criterion(torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu())).cuda(gpu,non_blocking=True), torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu())).cuda(gpu,non_blocking=True))
+                                    y_pred_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(output.cpu()))
+                                    y_true_rescaled = torch.tensor(tabular_scaler_fold_i.inverse_transform(tabular.cpu()))
+                                    rescaled_loss = criterion(y_pred_rescaled.cuda(gpu, non_blocking=True),
+                                                              y_true_rescaled.cuda(gpu, non_blocking=True))
+
+                                    # # DEBUG: check for any large-scale mismatch
+                                    # print(f"[E{epoch:02d}][S{step}] raw loss: {loss.item():.4f} - rescaled loss: {rescaled_loss.item():.2f}")
+                                    # print(f"     mean pred (rescaled): {y_pred_rescaled.mean().item():.2f}")
+                                    # print(f"     mean target (rescaled): {y_true_rescaled.mean().item():.2f}")
                                 else:
                                     rescaled_loss = loss
                                 
@@ -428,39 +430,16 @@ def main(args):
                             else:
                                 step_metrics = {'loss':loss.item()}
                     
-                if not(args.backbone in ['deit','beit']) and (args.paradigm in ['supervised', 'medbooster','vicreg']):
-                    lr = adjust_learning_rate(args, optimizer, loader, step)
-
-                # if 'deit' in args.backbone:
-                #     # ====== BEGIN MAE-DERIVED CODE ======
-                #     # Adapted from https://github.com/facebookresearch/mae
-                #     # Licensed under CC BY-NC 4.0
-
-                #     # per iteration (instead of per epoch) lr scheduler
-                #     adjust_learning_rate_mae(optimizer, step / len(loader) + epoch, args)
-                    
-                #     #samples = samples.to(device, non_blocking=True)
-                #     loss_value = loss.item()
-
-                #     if not math.isfinite(loss_value):
-                #         print("Loss is {}, stopping training".format(loss_value))
-                #         sys.exit(1)
-
-                #     lr = optimizer.param_groups[0]["lr"]
-                #     step_metrics = {'loss':loss.item()}
-                #     # ====== END MAE-DERIVED CODE ======
-
-                #     loss_scaler(loss, optimizer, parameters=model.parameters(), update_grad=True)
-                #     optimizer.zero_grad()
-                #     # ====== END MAE-DERIVED CODE ======
+                lr = adjust_learning_rate(args, optimizer, loader, step)
                 
-                # else:
-                scaler.scale(loss).backward() # to avoid underflow of gradients when using autocast
-                if ('deit' in args.backbone) or ('beit' in args.backbone):
-                    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
-                    lr_scheduler.step_update(epoch * num_steps + step)
+                scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+
+                # DEBUG: monitor GPU memory (optional)
+                # gpu_memory = torch.cuda.max_memory_allocated() / 1024**2
+                # max_gpu_usage = max(max_gpu_usage, gpu_memory)
+                # print(f"GPU Memory Used: {gpu_memory:.2f} MB")
 
                 # compute avg loss:
                 with torch.no_grad():
@@ -478,11 +457,11 @@ def main(args):
             ############## PLOT AND SAVE METRICS AT THE END OF EACH EPOCH
             with torch.no_grad():
                 all_stats = dict(
-                epoch=epoch,
-                time=int(time.time() - start_time),
-                base_lr = args.base_lr,
-                lr=lr,
-                day_time = str(datetime.now()),
+                    epoch=epoch,
+                    time=int(time.time() - start_time),
+                    base_lr=args.base_lr,
+                    lr=lr,
+                    day_time=str(datetime.now()),
                 )    
 
                 for metric_name, metric in train_all_metrics_dict.items():
@@ -490,14 +469,17 @@ def main(args):
 
                 print(all_stats)
                 print(json.dumps(all_stats), file=all_stats_file)        
-                df_train_metrics = general_utils.update_df_metrics(df_train_metrics, epoch, train_all_metrics_dict, save_df_train_path, plot_df_train_path, 'train' )
-                    
+                df_train_metrics = general_utils.update_df_metrics(
+                    df_train_metrics, epoch, train_all_metrics_dict,
+                    save_df_train_path, plot_df_train_path, 'train'
+                )
+
                 if loss < best_loss:
                     best_loss = loss
                     best_state = create_dict_state(args, model, optimizer, epoch)
                 
                 # Check for early stopping
-                early_stopping(train_all_metrics_dict['loss'], epoch = epoch)
+                early_stopping(train_all_metrics_dict['loss'], epoch=epoch)
             
                 if early_stopping.early_stop:
                     last_state = create_dict_state(args, model, optimizer, epoch)
@@ -505,6 +487,11 @@ def main(args):
                     torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
                     print(f"EARLY STOPPAGE, epoch {epoch}")
                     break
+
+            if epoch %10 == 0:
+                print('saving model at epoch', epoch)
+                last_state = create_dict_state(args, model, optimizer, epoch)
+                torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
     
         print('No early stoppage, saving model to path:', args.exp_dir / f"pretrained.pth")
         last_state = create_dict_state(args, model, optimizer, epoch)
@@ -528,13 +515,13 @@ def create_dict_state(args, model, optimizer, epoch):
         optimizer=copy.deepcopy(optimizer.state_dict()),
         )
 
-    elif (args.paradigm in ['vicreg', 'simclr']) and ('resnet' in args.backbone):
+    elif (args.paradigm in ['vicreg']) and ('resnet' in args.backbone):
         state = dict(
         epoch=epoch + 1,
         backbone=copy.deepcopy(model.encoder.state_dict()),
         head=copy.deepcopy(model.projector.state_dict()),
         optimizer=copy.deepcopy(optimizer.state_dict()),
-        )            
+        )           
 
     elif 'deit' in args.backbone:
         state = dict(

@@ -1,15 +1,16 @@
+
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(10)
-labels_percentages=(100 1)
-paradigms=(simclr)
+seeds=(0)
+labels_percentages=(100)
+paradigms=(supervised)
 datasets=(AGE)
-backbones=(resnet34)
+backbones=(resnet34_3D)
 
 # Constants (unchanged)
-images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz}
-tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/13_06_2025/df_table_merged_normalized_by_eTIV.csv}
+images_dir=${images_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/3D_data/17_01_2024/AgePred_3D.nii.gz}
+tabular_dir=${tabular_dir:-/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv}
 resize_shape=${resize_shape:-224}
 train_classes_percentage_values=${train_classes_percentage_values:-None}
 num_classes=${num_classes:-2}
@@ -23,20 +24,20 @@ device=${device:-cuda:0}
 
 # Pretraining
 pretrain_epochs=${pretrain_epochs:-2500} # 2500
-pretrain_min_epochs=${pretrain_min_epochs:-100}
-pretrain_patience=${pretrain_patience:-100}
-pretrain_batch_size=${pretrain_batch_size:-256}
-pretrain_optim=${pretrain_optim:-LARS}
-pretrain_base_lr=${pretrain_base_lr:-0.05} #5e-4 fixed for beit or deit backbone!!
-pretrain_weight_decay=${pretrain_weight_decay:-1e-6}
+pretrain_min_epochs=${pretrain_min_epochs:-1000}
+pretrain_patience=${pretrain_patience:-250}
+pretrain_batch_size=${pretrain_batch_size:-8}
+pretrain_optim=${pretrain_optim:-ADAM}
+pretrain_base_lr=${pretrain_base_lr:-1e-06} #0.0000001
+pretrain_weight_decay=${pretrain_weight_decay:-1e-8}
 pretrain_weighted_loss=${pretrain_weighted_loss:-True} # in our experiments the pre-training was performed solely on the regression task so this parameter was not used
 
 # Finetuning
 finetune_epochs=${finetune_epochs:-1000}
 finetune_min_epochs=${finetune_min_epochs:-500}
-finetune_patience=${finetune_patience:-50}
-finetune_batch_size=${finetune_batch_size:-512}
-finetune_val_batch_size=${finetune_val_batch_size:-512}
+finetune_patience=${finetune_patience:-250}
+finetune_batch_size=${finetune_batch_size:-8}
+finetune_val_batch_size=${finetune_val_batch_size:-8}
 finetune_head_lr=${finetune_head_lr:-0.001}
 finetune_weight_decay=${finetune_weight_decay:-1e-6}
 finetune_weighted_loss=${finetune_weighted_loss:-1} 
@@ -67,7 +68,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_resnet34/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_18_3D_actually_noaugm_resnet34_long_batch8/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -77,8 +78,8 @@ for seed in "${seeds[@]}"; do
           echo "Running: SEED=$seed | PARADIGM=$paradigm | DATASET=$dataset_name | PERC=$labels_percentage | BACKBONE=$backbone"
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
-
-            CUDA_VISIBLE_DEVICES=2 python source/pretraining_deit_LARS_simclr.py \
+            echo 'starting pretraining'
+            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS_3D.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \
@@ -90,7 +91,6 @@ for seed in "${seeds[@]}"; do
               --projector ${projector} \
               --batch-size ${pretrain_batch_size} \
               --cross_val_folds ${cross_val_folds} \
-              --device ${device} \
               --base_lr ${pretrain_base_lr} \
               --optim ${pretrain_optim} \
               --min_epochs ${pretrain_min_epochs} \
@@ -117,13 +117,14 @@ for seed in "${seeds[@]}"; do
               --simim_drop_path_rate ${simim_drop_path_rate} \
               --weight-decay ${pretrain_weight_decay} \
               --weighted_loss ${pretrain_weighted_loss} \
-              > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1 &
+              > ${EXPERIMENT_FOLDER_NAME}/training_output.log 2>&1
           else
             echo "⏭ Skipping training (already done or not needed)"
           fi
 
           # if [[ ! -f "$finetune_DONE_FILE" ]]; then
-          #   CUDA_VISIBLE_DEVICES=2 python source/fine_tune_evaluate_deit.py \
+          #   echo 'starting fine-tuning'
+          #   torchrun --nproc_per_node=4 --master_port=29502 source/fine_tune_evaluate_deit_3D.py \
           #     --paradigm ${paradigm} \
           #     --images_dir ${images_dir} \
           #     --tabular_dir ${tabular_dir} \
@@ -174,3 +175,4 @@ for seed in "${seeds[@]}"; do
     done
   done
 done
+

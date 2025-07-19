@@ -258,3 +258,37 @@ motivazioni per comparare solo medbooster con supervised:
 simclr 11.22 pretraining, finetuning 4.5
 
 30 secs epoch -> 20 hours 2500 epoch
+
+
+corrupted medbooster 5 seeds
+
+
+simclr all seeds age and ADNI 100,1
+simclr deit 5 seeds
+
+3D batch8, batch 32, sup med
+
+
+
+
+GPU RAM:
+
+RESNET 34 2D:
+SL 
+MB 
+VICReg 
+SimCLR 11.012 GB
+SimMIM 
+MAE 
+
+RESNET 34 3D batch size 8 :
+SL 44.788 /44.988G GB
+MB 44.982  /44.988G GB
+
+ViT batch size 256:
+SL 14209
+MB 14200
+VICReg 26.6
+SimCLR 26.6 GB
+SimMIM 15083 
+MAE 10265

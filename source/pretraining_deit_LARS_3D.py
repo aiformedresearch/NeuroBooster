@@ -8,6 +8,7 @@ import json
 import copy
 from datetime import datetime
 import torch.distributed as dist
+from torch.utils.data.distributed import DistributedSampler
 
 # utils
 import utils.general_utils as general_utils
@@ -129,6 +130,7 @@ def get_arguments():
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--local_rank', type=int, default=0, help='local rank passed from torchrun')
+    parser.add_argument('--distributed', type = str2bool, default =False)
 
     return parser
 
@@ -137,44 +139,49 @@ def main(args):
     print(f'paradigm: {args.paradigm}')
     ######### setup:
     #gpu = torch.device(args.device)
+    distributed = args.distributed
+
+    if distributed:
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
+        args.local_rank = local_rank  # if you want to keep it in args
+
+        print(f"[DEBUG] args.local_rank = {args.local_rank}")
+        print(f"[DEBUG] os.environ['LOCAL_RANK'] = {os.environ.get('LOCAL_RANK')}")
+
+        # Inizializza il processo distribuito
+        if args.local_rank == 0:
+            print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+
+        # Init DDP (assumes torchrun sets local_rank)
+        dist.init_process_group(backend='nccl')
+
+        # Set correct logical CUDA device
+        torch.cuda.set_device(local_rank)
+        
+        device = torch.device(f"cuda:{local_rank}")
+
+        # Define GPU device using logical index
+        gpu = torch.device(f"cuda:{local_rank}")
+        args.gpu = gpu
+
+        # Debug: check actual physical device
+        print(f"[Rank {local_rank}] mapped to CUDA device {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
+        print(f"[Rank {args.local_rank}] CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+        print(f"[Rank {args.local_rank}] Using CUDA device index = {args.local_rank}")
+        print(f"[Rank {args.local_rank}] torch.cuda.device_count() = {torch.cuda.device_count()}")
+        print(f"[Rank {args.local_rank}] torch.cuda.current_device() = {torch.cuda.current_device()}")
+        print(f"[Rank {args.local_rank}] torch.cuda.get_device_name() = {torch.cuda.get_device_name(torch.cuda.current_device())}")
+
+        if dist.get_rank() == 0:
+            print("✅ Rank 0 setup done.")
+        elif dist.get_rank() == 1:
+            print("✅ Rank 1 setup done.")
+
+    else:
+        gpu = torch.device(args.device)
+        args.gpu = gpu
 
 
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    args.local_rank = local_rank  # if you want to keep it in args
-
-    print(f"[DEBUG] args.local_rank = {args.local_rank}")
-    print(f"[DEBUG] os.environ['LOCAL_RANK'] = {os.environ.get('LOCAL_RANK')}")
-
-    # Inizializza il processo distribuito
-    if args.local_rank == 0:
-        print(f"[INFO] CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
-
-    # Init DDP (assumes torchrun sets local_rank)
-    dist.init_process_group(backend='nccl')
-
-    # Set correct logical CUDA device
-    torch.cuda.set_device(local_rank)
-    
-    device = torch.device(f"cuda:{local_rank}")
-
-    # Define GPU device using logical index
-    gpu = torch.device(f"cuda:{local_rank}")
-    args.gpu = gpu
-
-    # Optional debug: check actual physical device
-    print(f"[Rank {local_rank}] mapped to CUDA device {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
-
-
-    print(f"[Rank {args.local_rank}] CUDA_VISIBLE_DEVICES = {os.environ.get('CUDA_VISIBLE_DEVICES')}")
-    print(f"[Rank {args.local_rank}] Using CUDA device index = {args.local_rank}")
-    print(f"[Rank {args.local_rank}] torch.cuda.device_count() = {torch.cuda.device_count()}")
-    print(f"[Rank {args.local_rank}] torch.cuda.current_device() = {torch.cuda.current_device()}")
-    print(f"[Rank {args.local_rank}] torch.cuda.get_device_name() = {torch.cuda.get_device_name(torch.cuda.current_device())}")
-
-    if dist.get_rank() == 0:
-        print("✅ Rank 0 setup done.")
-    elif dist.get_rank() == 1:
-        print("✅ Rank 1 setup done.")
 
     #gpu = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #args.gpu = gpu 
@@ -274,13 +281,17 @@ def main(args):
             else:
                 if '_3D' in args.backbone:
                     model = init_medbooster_3D(args).to(gpu)
-                    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+                    if distributed:
+                        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
                 else:
                     model = init_medbooster(args).cuda(gpu)
 
-            #model.head = nn.Sequential(model.head)
-            model.module.head = nn.Sequential(model.module.head)
+            
+            if distributed:
+                model.module.head = nn.Sequential(model.module.head)
+            else:
+                model.head = nn.Sequential(model.head)
 
             if args.task == 'regression':
                 print('regression loss')
@@ -337,22 +348,25 @@ def main(args):
         # else:
         param_groups = model.parameters()
 
-        from torch.utils.data.distributed import DistributedSampler
-
         ######### OPTIMIZATION:
         # drop_last = len(train_dataset) > args.batch_size
         # if drop_last:
         print('dropping last batches when using DDP is imporant')
 
         # Distributed sampler for multi-GPU
-        sampler = DistributedSampler(
-            train_dataset,
-            num_replicas=torch.distributed.get_world_size(),
-            rank=torch.distributed.get_rank(),
-            shuffle=True,
-            seed=args.seed
-        )
-
+        if distributed:
+            sampler = DistributedSampler(
+                train_dataset,
+                num_replicas=torch.distributed.get_world_size(),
+                rank=torch.distributed.get_rank(),
+                shuffle=True,
+                seed=args.seed
+            )
+            shuffle = False
+        else:
+            sampler = None
+            shuffle = True
+    
         g = torch.Generator()
         g.manual_seed(args.seed)
 
@@ -362,7 +376,7 @@ def main(args):
             num_workers=args.num_workers,
             pin_memory=True,
             sampler=sampler,             # ✅ use sampler instead of shuffle
-            shuffle=False,               # ❌ shuffle must be False when sampler is set
+            shuffle=shuffle,               # ❌ shuffle must be False when sampler is set
             worker_init_fn=general_utils.seed_worker,
             generator=g,
             drop_last=True,
@@ -403,7 +417,12 @@ def main(args):
             num_steps = len(loader)
 
         
-        if dist.get_rank() == 0:
+        if distributed:
+            rank_0 = dist.get_rank() == 0
+        else:
+            rank_0 = True
+        
+        if rank_0:
             # SAVE MODEL ARCHITECTURE AND OPTIMIZER:
             for param_tensor in model.state_dict():
                 print(param_tensor, "\t", model.state_dict()[param_tensor].size(), file = model_info_file)
@@ -423,7 +442,10 @@ def main(args):
         df_train_metrics = {}
         max_gpu_usage = 0
         model.requires_grad_(True)
-        #model = model.cuda(gpu)
+
+        if not(distributed):
+            model = model.cuda(gpu)
+
         best_loss = 1e10
         accum_iter = 1                
 
@@ -435,21 +457,17 @@ def main(args):
                         file.write(f"{key}: {value}\n")
 
         early_stopping = EarlyStopping(patience=args.patience, min_epochs = args.min_epochs)
-        if dist.get_rank() == 0:
-            print(f"Per-GPU batch size: {args.batch_size}, Total effective batch size: {args.batch_size * dist.get_world_size()}")
 
-        torch.autograd.set_detect_anomaly(True)
+        if distributed:
+            torch.autograd.set_detect_anomaly(True)
+            if rank_0:
+                print(f"Per-GPU batch size: {args.batch_size}, Total effective batch size: {args.batch_size * dist.get_world_size()}")
 
         for epoch in range(start_epoch, args.epochs):
             starting_epoch = True
             for step, (img_x, img_y, tabular, original_img, samples_id) in enumerate(loader, start=epoch * len(loader)):   
                 img_x = img_x.to(torch.float32)  
                 img_y = img_y.to(torch.float32) 
-
-                # # Safety checks on tabular targets
-                # if tabular is None or torch.isnan(tabular).any() or torch.isinf(tabular).any():
-                #     print(f"[Step {step}] ⚠️ Skipping batch: NaN or Inf in tabular")
-                #     continue
 
                 if tabular.ndim == 1:
                     tabular = tabular.unsqueeze(1)
@@ -551,10 +569,9 @@ def main(args):
                 print('not enough samples:', len(loader))
                 break
 
-
             ############## PLOT AND SAVE METRICS AT THE END OF EACH EPOCH
             
-            if dist.get_rank() == 0:
+            if rank_0 == 0:
                 with torch.no_grad():
                     all_stats = dict(
                         epoch=epoch,
@@ -587,24 +604,31 @@ def main(args):
                         torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
                         print(f"EARLY STOPPAGE, epoch {epoch}")
                         break
-                        
-            if epoch % 5 == 0:
-                torch.cuda.empty_cache()
+                
+                if epoch %10 == 0:
+                    print('saving model at epoch', epoch)
+                    last_state = create_dict_state(args, model, optimizer, epoch)
+                    torch.save(last_state, args.exp_dir / f"last_pretrained.pth")                   
+                    torch.cuda.empty_cache()
 
-        if dist.get_rank() == 0:
+        if rank_0 == 0:
             print('No early stoppage, saving model to path:', args.exp_dir / f"pretrained.pth")
             last_state = create_dict_state(args, model, optimizer, epoch)
             torch.save(last_state, args.exp_dir / f"last_pretrained.pth")
             torch.save(best_state, args.exp_dir / f"best_pretrained.pth")
             (args.exp_dir / "pretraining_done.txt").touch()
 
-    dist.destroy_process_group()
+    if distributed:
+        dist.destroy_process_group()
 
 
 def create_dict_state(args, model, optimizer, epoch):     
-    if dist.get_rank() == 0:   
+    if rank_0 == 0:   
         # Helper to unwrap model if needed
-        base_model = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
+        if distributed:
+            base_model = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
+        else:
+            base_model = model
 
         if (args.paradigm in ['simim']) or ('beit' in args.backbone):
             state = dict(
