@@ -68,7 +68,7 @@ for seed in "${seeds[@]}"; do
     for dataset_name in "${datasets[@]}"; do
       for backbone in "${backbones[@]}"; do
         for labels_percentage in "${labels_percentages[@]}"; do
-          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_19_3D_actually_noaugm_resnet34_long_batch8_single_gpu_oldexp/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
+          EXPERIMENT_FOLDER_NAME=../REVISION1/EXPERIMENTS_ABLATION_2025_07_19_3D_actually_noaugm_resnet34_long_batch8_single_gpu_oldexp_DEBUG/seed${seed}/${dataset_name}/${paradigm}/labels_percentage_${labels_percentage}
           FOLD0_FOLDER="${EXPERIMENT_FOLDER_NAME}/fold_0"
           pretrain_DONE_FILE="${FOLD0_FOLDER}/pretraining_done.txt"
           finetune_DONE_FILE="${FOLD0_FOLDER}/finetuning_ablation_done.txt"
@@ -79,7 +79,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ( "$labels_percentage" -eq 100 || "$paradigm" == "supervised" ) && ! -f "$pretrain_DONE_FILE" ]]; then
             echo 'starting pretraining'
-            CUDA_VISIBLE_DEVICES=3 python source/pretraining_deit_LARS_3D_single_gpu_oldexp.py \
+            CUDA_VISIBLE_DEVICES=0 python source/pretraining_deit_LARS_3D_single_gpu_oldexp.py \
               --paradigm ${paradigm} \
               --labels_percentage ${labels_percentage} \
               --images_dir ${images_dir} \
@@ -124,7 +124,7 @@ for seed in "${seeds[@]}"; do
 
           if [[ ! -f "$finetune_DONE_FILE" ]]; then
             echo 'starting fine-tuning'
-            CUDA_VISIBLE_DEVICES=3 python source/fine_tune_evaluate_deit_3D_single_gpu_oldexp.py \
+            CUDA_VISIBLE_DEVICES=0 python source/fine_tune_evaluate_deit_3D_single_gpu_oldexp.py \
               --paradigm ${paradigm} \
               --images_dir ${images_dir} \
               --tabular_dir ${tabular_dir} \

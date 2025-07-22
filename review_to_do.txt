@@ -251,7 +251,6 @@ motivazioni per comparare solo medbooster con supervised:
 - medbooster ha senso che sia a maggior ragione piu forte degli altri paradigmi perchè si affida a delle features che in teoria sono volumetriche
 
 
-
 3D modifications: projector with proper initialization and normalization for dealing with small batch size 
 
 

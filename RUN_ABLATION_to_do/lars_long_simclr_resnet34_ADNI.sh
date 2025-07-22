@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define arrays for values to sweep over
-seeds=(12 13 21 22 24)
+seeds=(21)
 labels_percentages=(100 10 1)
 paradigms=(simclr)
 datasets=(ADNI)

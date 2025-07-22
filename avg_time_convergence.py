@@ -48,4 +48,6 @@ def analyze_experiment(experiment_path):
 
 # Example usage
 analyze_experiment('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_05_26_LARS_long')
-analyze_experiment('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_06_11_ADAMW_short')
+#analyze_experiment('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_06_11_ADAMW_short')
+#analyze_experiment('/Ironman/scratch/Andrea/med-booster/EXPERIMENTS_MRI_augm_21_11/EXPS')
+analyze_experiment('/Ironman/scratch/Andrea/med-booster/REVISION1/EXPERIMENTS_ABLATION_2025_07_08_LARS_long_simclr_deit')

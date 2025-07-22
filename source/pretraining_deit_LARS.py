@@ -54,7 +54,7 @@ def get_arguments():
     parser.add_argument('--labels_percentage', type = int, default = 100, help="If supervised paradigm, select the percentage of labels to be used")
     parser.add_argument("--normalization", type=str, default='')
     parser.add_argument("--augmentation_rate", type = float, default = 0.9, help='paradigm data augmentation hyperparameter')
-    parser.add_argument("--corruption_rate", type = float, default = 0.3, help='bbworld paradigm data augmentation hyperparameter')
+    parser.add_argument("--corruption_rate", type = float, default = 0.3, help='paradigm data augmentation hyperparameter')
     
     # Results directory
     parser.add_argument("--exp-dir", type=Path, default="./exp", help='Path to the experiment folder, where all the outputs will be stored')
