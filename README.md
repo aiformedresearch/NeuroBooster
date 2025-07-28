@@ -28,7 +28,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 1. **Clone the Repository**:
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/aiformedresearch/NeuroBooster.git
     cd <repository-directory>
     ```
 
