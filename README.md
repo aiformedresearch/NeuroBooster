@@ -9,7 +9,7 @@ Currently the repo supports pretraining [ResNet](https://arxiv.org/abs/1512.0338
 
 ### Figure 2: Saliency maps
 
-[Figure 2](readme_images/NeuroBooster_neuroimaging.png) is a comparison of the average saliency maps obtained from the ViT models pretrained with the different paradigms. CHeck the paper for more details [...]. NeuroBooster's saliency maps are the most similar to the ones obtained with SL.
+[Figure 2](readme_images/saliency_comparison_with_similarity.png) is a comparison of the average saliency maps obtained from the ViT models pretrained with the different paradigms. CHeck the paper for more details [...]. NeuroBooster's saliency maps are the most similar to the ones obtained with SL.
 
 ![Figure 2: Saliency maps](readme_images/saliency_comparison_with_similarity.png)
 
