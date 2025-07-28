@@ -7,9 +7,10 @@
 
 Currently the repo supports pretraining [ResNet](https://arxiv.org/abs/1512.03385) and [ViT](https://arxiv.org/abs/2010.11929) backbones with Neurobooster (our proposed paradigm),  [Supervised Learning](https://arxiv.org/abs/1512.03385), [SimCLR](https://arxiv.org/abs/2002.05709), [VICReg](https://arxiv.org/abs/2105.04906), [MaskedAE](https://arxiv.org/abs/2111.06377). The repo is thought to be easily scalable to include different architectures, learning paradigms, data augmentations, datasets and losses. 
 
+### Figure 2: Saliency maps
+
 [Figure 2](readme_images/NeuroBooster_neuroimaging.png) is a comparison of the average saliency maps obtained from the ViT models pretrained with the different paradigms. CHeck the paper for more details [...]. NeuroBooster's saliency maps are the most similar to the ones obtained with SL.
 
-### Figure 2: Saliency maps
 ![Figure 2: Saliency maps](readme_images/saliency_comparison_with_similarity.png)
 
 ## Table of Contents
