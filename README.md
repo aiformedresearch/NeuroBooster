@@ -25,7 +25,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 ## Setup
 
-### Using Docker
+### Using Docker 🐳
 
 1. **Clone the Repository**:
     ```bash
@@ -38,7 +38,7 @@ You can run the scripts either using Docker or directly with the provided bash s
     docker build -t neurobooster_public .
     ```
 
-### Using the Bash Script
+### Using just Conda 🐍
 
 1. **Clone the Repository**:
     ```bash
