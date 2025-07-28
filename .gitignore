@@ -5,8 +5,8 @@
 *.gz*
 *DATA*
 *.png*
-!MedBooster_schema/MedBooster.png
-!MedBooster_schema/MedBooster_neuroimaging.png
+!readme_images/NeuroBooster_neuroimaging.png
+!readme_images/saliency_comparison_with_similarity.png
 *.jpg*
 *.npy*
 
