@@ -1,7 +1,7 @@
 FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
 
 # Set up environment
-ENV CONDA_ENV_NAME=med_booster
+ENV CONDA_ENV_NAME=neurobooster
 ENV PATH=/opt/conda/envs/$CONDA_ENV_NAME/bin:/opt/conda/bin:$PATH
 
 # Install dependencies
@@ -30,4 +30,4 @@ RUN echo "source activate $CONDA_ENV_NAME" > ~/.bashrc
 ENV PATH=/opt/conda/envs/$CONDA_ENV_NAME/bin:$PATH
 
 # Set entrypoint
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "med_booster", "bash", "/app/run_example_docker.sh"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "neurobooster", "bash", "/app/run_exp_docker.sh"]

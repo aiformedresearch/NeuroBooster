@@ -1,4 +1,4 @@
-name: med_booster
+name: neurobooster
 channels:
   - nvidia
   - pytorch

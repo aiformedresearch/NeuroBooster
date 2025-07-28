@@ -1,21 +1,19 @@
-# MedBooster
+# NeuroBooster
 
-[MedBooster paper](...). The idea is very simple: teach the model the anatomy of the organ (pretraining) before teaching the model to do diagnosis (fine-tuning). 
+[NeuroBooster paper](...). NeuroBooster (NB) is a novel self-supervised learning (SSL) paradigm tailored for brain MRI analysis, which stands out by not requiring multiple patient views, meta-data, contrastive objectives, or masked image modeling. The core idea of NeuroBooster is very simple: first, pretrain the model to understand brain anatomy by regressing morphological features extracted using open-source brain MRI analysis tools; then, fine-tune the model for downstream diagnostic tasks. A simplified overview is shown in in [Figure 1](readme_images/NeuroBooster.png).
 
-This repository provides scripts for pre-training and fine-tuning models for medical image analysis with different learning paradigms.
-Currently the repo supports pretraining [ResNet](https://arxiv.org/abs/1512.03385) with [Supervised Learning](https://arxiv.org/abs/1512.03385) and [VICReg](https://arxiv.org/abs/2105.04906) or MedBooster [...] learning paradigms and [BeiT](https://arxiv.org/abs/2106.08254) with [SimMIM](https://ieeexplore.ieee.org/document/9880205) paradigm. The repo is thought to be easily scalable to include different architectures, learning paradigms, data augmentations and losses. 
+### Figure 1: NeuroBooster Schema
+![Figure 1: General NeuroBooster Schema](readme_images/NeuroBooster_neuroimaging.png)
 
-MedBooster is a general framework for designing Self-supervised learning (SSL) paradigms to pretrain Deep Learning models for medical tasks as explained here [...], briefly schematized in [Figure 1](MedBooster_schema/MedBooster.png) for any medical application, and in [Figure 2](MedBooster_schema/MedBooster_neuroimaging.png) for the specific version implemented in this repo for neuroimaging data.
+Currently the repo supports pretraining [ResNet](https://arxiv.org/abs/1512.03385) and [ViT](https://arxiv.org/abs/2010.11929) backbones with Neurobooster (our proposed paradigm),  [Supervised Learning](https://arxiv.org/abs/1512.03385), [SimCLR](https://arxiv.org/abs/2002.05709), [VICReg](https://arxiv.org/abs/2105.04906), [MaskedAE](https://arxiv.org/abs/2111.06377). The repo is thought to be easily scalable to include different architectures, learning paradigms, data augmentations, datasets and losses. 
 
-### Figure 1: General MedBooster Schema
-![Figure 1: General MedBooster Schema](MedBooster_schema/MedBooster.png)
+[Figure 2](readme_images/NeuroBooster_neuroimaging.png) is a comparison of the average saliency maps obtained from the ViT models pretrained with the different paradigms. CHeck the paper for more details [...]. NeuroBooster's saliency maps are the most similar to the ones obtained with SL.
 
-### Figure 2: MedBooster Schema for Neuroimaging
-![Figure 2: MedBooster Schema for Neuroimaging](MedBooster_schema/MedBooster_neuroimaging.png)
-
-You can run the scripts either using Docker or directly with the provided bash script.
+### Figure 2: Saliency maps
+![Figure 2: Saliency maps](readme_images/saliency_comparison_with_similarity.png)
 
 ## Table of Contents
+You can run the scripts either using Docker or directly with the provided bash script:
 
 - [Setup](#setup)
   - [Using Docker](#using-docker)
@@ -36,7 +34,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 2. **Build the Docker Image**:
     ```bash
-    docker build -t med_booster_public .
+    docker build -t neurobooster_public .
     ```
 
 ### Using the Bash Script
@@ -50,7 +48,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 2. **Create and Activate the Conda Environment**:
     ```bash
     conda env create -f environment.yml
-    conda activate med_booster
+    conda activate neurobooster
     ```
 
 ## Usage
@@ -58,7 +56,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 ### Running with Docker
 
 1. **Prepare Your Data**:
-    Ensure your imaging and tabular data are in the correct paths of your host machine. As explained in the paper [...] if you want to pretrain the model with MedBooster, then the tabular data must contain the features that are desired to be regressed (e.g., cortical thickness and fractal dimension). 
+    Ensure your imaging and tabular data are in the correct paths of your host machine. As explained in the paper [...] if you want to pretrain the model with NeuroBooster, then the tabular data must contain the features that are desired to be regressed (e.g., cortical thickness and fractal dimension, extracted with tools like [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/) or/and [fractalbrain](https://github.com/chiaramarzi/fractalbrain-toolkit)). 
 
 2. **Run the Docker Container**:
     ```bash
@@ -69,21 +67,24 @@ You can run the scripts either using Docker or directly with the provided bash s
         -e EXPERIMENT_FOLDER_NAME="/app/exp_folder/" \
         -v /path/to/data:/app/data \
         -v /path/to/exp_folder:/app/exp_folder \
-        med_booster_public
+        neurobooster_public
     ```
 
     Replace the paths in the `-e` and `-v` options with the appropriate paths of your host machine.
 
 ### Running with the Bash Script
+    Make sure that the script run_exp.sh has the correct paths for these variables:
     ```bash
     images_dir='/path/to/image/data/imaging_file.gz' \
     tabular_dir='/path/to/image/data/tabular_file.csv' \
     EXPERIMENT_FOLDER_NAME='/path/to/exp/exp_folder' \
-    bash /MAIN/run_example.sh
     ```
 
-    Replace the paths in the environment variables with the appropriate paths of your host machine.
+    then run:
 
+    ```bash
+    bash run_exp.sh
+    ```
 ## Notes
 
 - Ensure that the paths to your data and experiment directories are correctly specified.
@@ -98,8 +99,12 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 This project includes code from the following sources, licensed under the MIT License:
 
-- [Microsoft GitHub Repository](https://github.com/microsoft/SimMIM): Code for SimMIM.
-- [Facebookresearch GitHub Repository](https://github.com/facebookresearch/vicreg): Code for VICReg.
+- [SimMIM repo](https://github.com/microsoft/SimMIM): Code for SimMIM.
+- [VICReg repo](https://github.com/facebookresearch/vicreg): Code for 
+VICReg.
+- [SimCLR repo](https://github.com/google-research/simclr): Code for SimCLR.
+- [MaskedAE repo](https://github.com/facebookresearch/mae): Code for 
+MaskedAE.
 
 The full license text can be found in the `LICENSE` file.
 
