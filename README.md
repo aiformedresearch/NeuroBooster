@@ -25,13 +25,13 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 ## Setup
 
-### Using Docker 🐳
-
 1. **Clone the Repository**:
     ```bash
     git clone https://github.com/aiformedresearch/NeuroBooster.git
     cd <repository-directory>
     ```
+
+### Using Docker 🐳
 
 2. **Build the Docker Image**:
     ```bash
@@ -40,13 +40,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 ### Using just Conda 🐍
 
-1. **Clone the Repository**:
-    ```bash
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
-
-2. **Create and Activate the Conda Environment**:
+2. **Create and activate the Conda Environment**:
     ```bash
     conda env create -f environment.yml
     conda activate neurobooster
@@ -59,7 +53,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 1. **Prepare Your Data**:
     Ensure your imaging and tabular data are in the correct paths of your host machine. As explained in the paper [...] if you want to pretrain the model with NeuroBooster, then the tabular data must contain the features that are desired to be regressed (e.g., cortical thickness and fractal dimension, extracted with tools like [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/) or/and [fractalbrain](https://github.com/chiaramarzi/fractalbrain-toolkit)). 
 
-2. **Run the Docker Container**:
+2. **Run the Docker Container 🐳**:
     ```bash
     docker run --rm --gpus all \
         --shm-size=8g \
@@ -73,7 +67,7 @@ You can run the scripts either using Docker or directly with the provided bash s
 
     Replace the paths in the `-e` and `-v` options with the appropriate paths of your host machine.
 
-### Running with the Bash Script
+### Running with a simple bash script
     Make sure that the script run_exp.sh has the correct paths for these variables:
     ```bash
     images_dir='/path/to/image/data/imaging_file.gz' \
