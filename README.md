@@ -48,34 +48,33 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 ## Usage
 
-### Running with Docker
-
-1. **Prepare Your Data**:
+3. **Prepare Your Data**:
     Ensure your imaging and tabular data are in the correct paths of your host machine. As explained in the paper [...] if you want to pretrain the model with NeuroBooster, then the tabular data must contain the features that are desired to be regressed (e.g., cortical thickness and fractal dimension, extracted with tools like [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/) or/and [fractalbrain](https://github.com/chiaramarzi/fractalbrain-toolkit)). 
 
-2. **Run the Docker Container 🐳**:
-    ```bash
-    docker run --rm --gpus all \
-        --shm-size=8g \
-        -e images_dir="/app/data/imaging_file.gz" \
-        -e tabular_dir="/app/data/tabular_file.csv" \
-        -e EXPERIMENT_FOLDER_NAME="/app/exp_folder/" \
-        -v /path/to/data:/app/data \
-        -v /path/to/exp_folder:/app/exp_folder \
-        neurobooster_public
-    ```
-    Replace the paths in the `-e` and `-v` options with the appropriate paths of your host machine.
+## Running with Docker 🐳:
+```bash
+docker run --rm --gpus all \
+    --shm-size=8g \
+    -e images_dir="/app/data/imaging_file.gz" \
+    -e tabular_dir="/app/data/tabular_file.csv" \
+    -e EXPERIMENT_FOLDER_NAME="/app/exp_folder/" \
+    -v /path/to/data:/app/data \
+    -v /path/to/exp_folder:/app/exp_folder \
+    neurobooster_public
+```
+Replace the paths in the `-e` and `-v` options with the appropriate paths of your host machine.
 
-### Running with a simple bash script
+## Running with a simple bash script
 
-Make sure that the script run_exp.sh receives the correct paths via environment variables for the following required inputs:
+Make sure that the script `run_exp.sh` receives the correct paths via environment variables for the following required inputs:
 
-    ```bash
-    images_dir='/path/to/image/data/imaging_file.gz' \
-    tabular_dir='/path/to/image/data/tabular_file.csv' \
-    EXPERIMENT_FOLDER_NAME='/path/to/exp/exp_folder' \
-    bash run_exp.sh
-    ```
+```bash
+images_dir='/path/to/image/data/imaging_file.gz' \
+tabular_dir='/path/to/image/data/tabular_file.csv' \
+EXPERIMENT_FOLDER_NAME='/path/to/exp/exp_folder' \
+bash run_exp.sh
+```
+
 ## Notes
 
 - Ensure that the paths to your data and experiment directories are correctly specified.
