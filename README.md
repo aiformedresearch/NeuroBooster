@@ -92,16 +92,16 @@ You can run the scripts either using Docker or directly with the provided bash s
 
 ## License
 
-This project includes code from the following sources, licensed under the MIT License:
+## License
 
-- [SimMIM repo](https://github.com/microsoft/SimMIM): Code for SimMIM.
-- [VICReg repo](https://github.com/facebookresearch/vicreg): Code for 
-VICReg.
-- [SimCLR repo](https://github.com/google-research/simclr): Code for SimCLR.
-- [MaskedAE repo](https://github.com/facebookresearch/mae): Code for 
-MaskedAE.
+This work is licensed under multiple licences.
 
-The full license text can be found in the `LICENSE` file.
+It includes code from:
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Our code, which is licensed under the MIT License.
+- [VICReg](https://github.com/facebookresearch/vicreg), which is licensed under the MIT License.
+- [MAE](https://github.com/facebookresearch/mae), which is licensed under the CC BY-NC 4.0 License. Note that the CC BY-NC 4.0 Linense does not allow commercial use. 
+- [SimCLR repo](https://github.com/google-research/simclr), which is licensed under the Apache-2.0 license.
+- [SimMIM repo](https://github.com/microsoft/SimMIM),which is licensed under the MIT License.
 
+The code sections that where extracted from the MAE and SimCLR repos, thus under the CC BY-NC 4.0 license and the Apache-2.0 license respectively, are indicated in the scripts themselves.

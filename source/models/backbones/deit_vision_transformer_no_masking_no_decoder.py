@@ -1,4 +1,14 @@
-# simplified_mae_encoder.py
+# ------------------------------------------------------------------------------------
+# This file includes code adapted from the MAE repository:
+# https://github.com/facebookresearch/mae
+#
+# The original code is licensed under the Creative Commons Attribution-NonCommercial
+# 4.0 International License (CC BY-NC 4.0):
+# https://creativecommons.org/licenses/by-nc/4.0/
+#
+# This adapted file is therefore subject to the same non-commercial restrictions.
+# ------------------------------------------------------------------------------------
+
 
 import torch
 import torch.nn as nn

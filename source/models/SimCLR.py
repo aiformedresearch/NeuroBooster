@@ -8,7 +8,6 @@ from torch import nn
 from models.backbones import deit_vision_transformer, deit_vision_transformer_no_masking_no_decoder
 from models.VICReg import Projector, Projector_3D
 
-
 class init_simclr_deit(nn.Module):
     def __init__(self, args):
         super().__init__()
