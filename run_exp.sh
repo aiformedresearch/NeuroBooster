@@ -1,23 +1,27 @@
-#!/bin/bash
+
+# Check required env variables
+if [ -z "$images_dir" ] || [ -z "$tabular_dir" ] || [ -z "$EXPERIMENT_FOLDER_NAME" ]; then
+  echo "Error: One or more required environment variables are not set."
+  echo "Please provide: images_dir, tabular_dir, and EXPERIMENT_FOLDER_NAME"
+  exit 1
+fi
 
 # Define arrays for values to sweep over
 seeds=(0)
-labels_percentages=(100 1) #100, 10, 1
-paradigms=(supervised neurobooster simclr vicreg mae simim) #options: supervised neurobooster simclr vicreg mae simim
-dataset_name=AGE #options: AGE, ADNI
-backbones=(resnet34 deit)  #options: deit, resnet34, resnet34_3D
-optimization_protocol=DEBUG # options: DEBUG, AdamW_short, LARS_long, LARS_short, 
-EXPERIMENT_FOLDER_NAME=DEBUG_neurobooster
+labels_percentages=(100 1) # 100, 10, 1
+paradigms=(supervised neurobooster simclr vicreg mae simim) # options
+dataset_name=AGE # options: AGE, ADNI
+backbones=(resnet34 deit)  # options: deit, resnet34, resnet34_3D
+optimization_protocol=DEBUG # options: DEBUG, AdamW_short, LARS_long, LARS_short
 
 CUDA_DEVICE=${CUDA_DEVICE:-0}
 
-if [ "$dataset_name" == "AGE" ]; then
-  images_dir='/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/AgePred_part1-2-3.nii.gz'
-  tabular_dir='/Ironman/scratch/Andrea/data_from_bernadette/AGE_prediction/09_10_2023/NF_Andrea_part1-2-3.csv'
-elif [ "$dataset_name" == "ADNI" ]; then
-  images_dir='/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_reg2std_axslicez127.nii.gz'
-  tabular_dir='/Ironman/scratch/Andrea/data_from_bernadette/ADNI_2D_original_Andrea/ADNI_T1w_axslicez127_info.csv'
-fi
+# Print current configuration
+echo "Running experiment with:"
+echo "images_dir: $images_dir"
+echo "tabular_dir: $tabular_dir"
+echo "EXPERIMENT_FOLDER_NAME: $EXPERIMENT_FOLDER_NAME"
+echo "CUDA_DEVICE: $CUDA_DEVICE"
 
 # Pretraining
 if [ "$optimization_protocol" == "DEBUG" ]; then

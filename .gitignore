@@ -9,6 +9,7 @@
 !readme_images/saliency_comparison_with_similarity.png
 *.jpg*
 *.npy*
+*DEBUG*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

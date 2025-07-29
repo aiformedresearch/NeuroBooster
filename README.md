@@ -64,20 +64,16 @@ You can run the scripts either using Docker or directly with the provided bash s
         -v /path/to/exp_folder:/app/exp_folder \
         neurobooster_public
     ```
-
     Replace the paths in the `-e` and `-v` options with the appropriate paths of your host machine.
 
 ### Running with a simple bash script
-    Make sure that the script run_exp.sh has the correct paths for these variables:
+
+Make sure that the script run_exp.sh receives the correct paths via environment variables for the following required inputs:
+
     ```bash
     images_dir='/path/to/image/data/imaging_file.gz' \
     tabular_dir='/path/to/image/data/tabular_file.csv' \
     EXPERIMENT_FOLDER_NAME='/path/to/exp/exp_folder' \
-    ```
-
-    then run:
-
-    ```bash
     bash run_exp.sh
     ```
 ## Notes
